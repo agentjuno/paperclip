@@ -107,6 +107,7 @@ export async function createApp(
       deploymentExposure: opts.deploymentExposure,
       authReady: opts.authReady,
       companyDeletionEnabled: opts.companyDeletionEnabled,
+      zhcBridgeEnabled: Boolean(opts.zhcSessionSecret),
     }),
   );
   api.use("/companies", companyRoutes(db));
