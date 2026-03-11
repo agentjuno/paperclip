@@ -28,9 +28,9 @@ services:
       - key: BETTER_AUTH_SECRET
         sync: false
       - key: PAPERCLIP_PUBLIC_URL
-        value: "https://paperclip-zhc.onrender.com"
+        value: "https://app.zhcinstitute.com"
       - key: BETTER_AUTH_TRUSTED_ORIGINS
-        value: "https://paperclip-zhc.onrender.com,https://zhcinstitute.com"
+        value: "https://app.zhcinstitute.com,https://zhcinstitute.com"
 
       # ZHC wallet auth bridge
       - key: ZHC_GATING_SESSION_SECRET
