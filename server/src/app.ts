@@ -19,6 +19,7 @@ import { routineRoutes } from "./routes/routines.js";
 import { executionWorkspaceRoutes } from "./routes/execution-workspaces.js";
 import { goalRoutes } from "./routes/goals.js";
 import { approvalRoutes } from "./routes/approvals.js";
+import { tokenLaunchRoutes } from "./routes/token-launch.js";
 import { secretRoutes } from "./routes/secrets.js";
 import { costRoutes } from "./routes/costs.js";
 import { activityRoutes } from "./routes/activity.js";
@@ -154,6 +155,7 @@ export async function createApp(
     }),
   );
   api.use("/companies", companyRoutes(db, opts.storageService));
+  api.use(tokenLaunchRoutes(db));
   api.use(companySkillRoutes(db));
   api.use(agentRoutes(db));
   api.use(assetRoutes(db, opts.storageService));
