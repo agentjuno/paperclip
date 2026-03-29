@@ -3,7 +3,6 @@ import type { Request } from "express";
 import { eq, inArray } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { authUsers, userWalletLinks } from "@paperclipai/db";
-import { isPrivyUserAllowed } from "./privy-allowlist.js";
 
 export const COMPANY_SESSION_COOKIE_NAME =
   process.env.PAPERCLIP_COMPANY_SESSION_COOKIE_NAME?.trim() || "zhc_company_session";
@@ -260,7 +259,6 @@ async function resolveCompanySession(db: Db, cookieHeader: string | null | undef
   const token = parseCookieValue(cookieHeader, COMPANY_SESSION_COOKIE_NAME);
   const payload = verifyCompanySessionToken(token);
   if (!payload) return null;
-  if (!isPrivyUserAllowed({ userId: payload.userId, email: payload.email })) return null;
   return syncCompanySessionUser(db, payload);
 }
 
