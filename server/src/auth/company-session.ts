@@ -35,12 +35,12 @@ export type ResolvedSessionResult = {
 function getCompanySessionSecret() {
   const secret =
     process.env.COMPANY_SESSION_SECRET?.trim()
-    || process.env.GATING_SESSION_SECRET?.trim()
+    || process.env.PRIVY_SESSION_SECRET?.trim()
     || process.env.AUTH_SECRET?.trim();
 
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
-      throw new Error("Missing COMPANY_SESSION_SECRET, GATING_SESSION_SECRET, or AUTH_SECRET in production");
+      throw new Error("Missing COMPANY_SESSION_SECRET, PRIVY_SESSION_SECRET, or AUTH_SECRET in production");
     }
 
     return "dev-only-company-session-secret";
@@ -56,7 +56,7 @@ function getCompanySessionSecret() {
 export function getCompanySessionCookieDomain() {
   const configured =
     process.env.COMPANY_SESSION_COOKIE_DOMAIN?.trim()
-    || process.env.GATING_COOKIE_DOMAIN?.trim();
+    || process.env.PRIVY_SESSION_COOKIE_DOMAIN?.trim();
   return configured || undefined;
 }
 
