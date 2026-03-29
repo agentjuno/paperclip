@@ -1,16 +1,30 @@
 services:
   - type: web
     name: junoclip-app
-    runtime: docker
-    dockerfilePath: ./Dockerfile
+    runtime: node
     plan: standard
     region: oregon
     healthCheckPath: /api/health
+    buildCommand: export HOME=/opt/render/project && export XDG_DATA_HOME=/opt/render/project/.local/share && export PNPM_HOME=/opt/render/project/.local/share/pnpm && mkdir -p "$PNPM_HOME" && pnpm install --frozen-lockfile --prod=false && pnpm --filter @paperclipai/ui build && pnpm --filter @paperclipai/plugin-sdk build && pnpm --filter @paperclipai/server build
+    preDeployCommand: export HOME=/opt/render/project && export XDG_DATA_HOME=/opt/render/project/.local/share && export PNPM_HOME=/opt/render/project/.local/share/pnpm && mkdir -p "$PNPM_HOME" && pnpm db:migrate
+    startCommand: node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js
+    disk:
+      name: paperclip-data
+      mountPath: /paperclip
+      sizeGB: 10
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: "3100"
+      - key: HOST
+        value: 0.0.0.0
+      - key: HOME
+        value: /paperclip
+      - key: PAPERCLIP_HOME
+        value: /paperclip
+      - key: PAPERCLIP_CONFIG
+        value: /paperclip/instances/default/config.json
+      - key: PAPERCLIP_INSTANCE_ID
+        value: default
       - key: SERVE_UI
         value: "true"
       - key: PAPERCLIP_DEPLOYMENT_MODE
@@ -21,30 +35,24 @@ services:
         value: https://app.zhcinstitute.com
       - key: PAPERCLIP_AUTH_PUBLIC_BASE_URL
         value: https://app.zhcinstitute.com
-      - key: COMPANY_SESSION_COOKIE_DOMAIN
-        value: .zhcinstitute.com
-      - key: VITE_ZHC_SITE_URL
-        value: https://zhcinstitute.com
-      - key: PAPERCLIP_STORAGE_PROVIDER
-        value: s3
-      - key: PAPERCLIP_STORAGE_S3_BUCKET
-        sync: false
-      - key: PAPERCLIP_STORAGE_S3_REGION
-        sync: false
-      - key: PAPERCLIP_STORAGE_S3_ENDPOINT
-        sync: false
-      - key: PAPERCLIP_STORAGE_S3_PREFIX
-        value: junoclip
-      - key: PAPERCLIP_STORAGE_S3_FORCE_PATH_STYLE
-        value: "false"
-      - key: COMPANY_SESSION_SECRET
-        generateValue: true
-      - key: PAPERCLIP_SECRETS_MASTER_KEY
-        generateValue: true
+      - key: PAPERCLIP_MIGRATION_AUTO_APPLY
+        value: "true"
       - key: PAPERCLIP_SECRETS_PROVIDER
         value: local_encrypted
       - key: PAPERCLIP_SECRETS_STRICT_MODE
         value: "true"
+      - key: PAPERCLIP_SECRETS_MASTER_KEY
+        generateValue: true
+      - key: PAPERCLIP_STORAGE_PROVIDER
+        value: local_disk
+      - key: PAPERCLIP_STORAGE_LOCAL_DIR
+        value: /paperclip/storage
+      - key: COMPANY_SESSION_COOKIE_DOMAIN
+        value: .zhcinstitute.com
+      - key: COMPANY_SESSION_SECRET
+        generateValue: true
+      - key: VITE_ZHC_SITE_URL
+        value: https://www.zhcinstitute.com
       - key: DATABASE_URL
         fromDatabase:
           name: junoclip-postgres
@@ -53,7 +61,7 @@ services:
 databases:
   - name: junoclip-postgres
     databaseName: junoclip
-    user: junoclip
+    user: junoclip_user
     plan: basic-256mb
     region: oregon
     postgresMajorVersion: "16"
