@@ -950,45 +950,9 @@ export function Inbox() {
   const unreadIssueIds = markAllReadIssues
     .map((issue) => issue.id);
   const canMarkAllRead = unreadIssueIds.length > 0;
-  const inboxSignalCounts = [
-    { label: "Work items", value: workItemsToRender.length },
-    { label: "Unread", value: unreadTouchedIssues.length },
-    { label: "Approvals", value: approvalsToRender.length },
-    { label: "Failed runs", value: failedRuns.length },
-  ];
 
   return (
-    <div className="paperclip-grid space-y-6">
-      <section className="command-hero-shell command-fade-up px-5 py-5 sm:px-6 lg:px-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-3">
-            <div className="paperclip-kicker flex items-center gap-3">
-              <span>Governance / Inbox</span>
-              <span className="h-px w-8 bg-border/80" />
-              <span>{tab}</span>
-            </div>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-                Inbox
-              </h1>
-              <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                Triage approvals, failed runs, join requests, and touched work from a single queue.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[22rem] xl:grid-cols-4">
-            {inboxSignalCounts.map((stat) => (
-              <div key={stat.label} className="paperclip-panel px-4 py-3">
-                <div className="paperclip-kicker">{stat.label}</div>
-                <div className="mt-2 text-2xl font-semibold tabular-nums">{stat.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="paperclip-panel command-fade-up command-fade-delay-1 p-4">
+    <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <Tabs value={tab} onValueChange={(value) => navigate(`/inbox/${value}`)}>
@@ -1059,7 +1023,6 @@ export function Inbox() {
           </div>
         )}
       </div>
-      </section>
 
       {approvalsError && <p className="text-sm text-destructive">{approvalsError.message}</p>}
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
@@ -1087,7 +1050,7 @@ export function Inbox() {
         <>
           {showSeparatorBefore("work_items") && <Separator />}
           <div>
-            <div className="paperclip-panel overflow-hidden">
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
               {workItemsToRender.map((item) => {
                 const isMineTab = tab === "mine";
 

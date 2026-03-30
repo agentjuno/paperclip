@@ -802,138 +802,124 @@ export function AgentDetail() {
   }
   const isPendingApproval = agent.status === "pending_approval";
   const showConfigActionBar = (activeView === "configuration" || activeView === "instructions") && (configDirty || configSaving);
-  const shellClassName =
-    "rounded-3xl border border-border/70 bg-background/35 shadow-[0_24px_80px_rgba(0,0,0,0.22)] backdrop-blur-sm";
 
   return (
     <div className={cn("space-y-6", isMobile && showConfigActionBar && "pb-24")}>
-      <div className="space-y-3 sm:space-y-4">
-        <section className={`${shellClassName} p-5 sm:p-6 space-y-5`}>
-          {/* Header */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <AgentIconPicker
-                value={agent.icon}
-                onChange={(icon) => updateIcon.mutate(icon)}
-              >
-                <button className="shrink-0 flex items-center justify-center h-12 w-12 rounded-2xl border border-border/70 bg-background/50 hover:bg-background/70 transition-colors">
-                  <AgentIcon icon={agent.icon} className="h-6 w-6" />
-                </button>
-              </AgentIconPicker>
-              <div className="min-w-0 space-y-1">
-                <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-                  <span>Agent detail</span>
-                  <span className="h-1 w-1 rounded-full bg-emerald-400/80" />
-                  <StatusBadge status={agent.status} />
-                </div>
-                <h2 className="text-2xl font-semibold tracking-tight truncate sm:text-[2rem]">{agent.name}</h2>
-                <p className="text-sm text-muted-foreground truncate">
-                  {roleLabels[agent.role] ?? agent.role}
-                  {agent.title ? ` - ${agent.title}` : ""}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2 shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openNewIssue({ assigneeAgentId: agent.id })}
-              >
-                <Plus className="h-3.5 w-3.5 sm:mr-1" />
-                <span className="hidden sm:inline">Assign Task</span>
-              </Button>
-              <RunButton
-                onClick={() => agentAction.mutate("invoke")}
-                disabled={agentAction.isPending || isPendingApproval}
-                label="Run Heartbeat"
-              />
-              <PauseResumeButton
-                isPaused={agent.status === "paused"}
-                onPause={() => agentAction.mutate("pause")}
-                onResume={() => agentAction.mutate("resume")}
-                disabled={agentAction.isPending || isPendingApproval}
-              />
-              {mobileLiveRun && (
-                <Link
-                  to={`/agents/${canonicalAgentRef}/runs/${mobileLiveRun.id}`}
-                  className="sm:hidden flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 hover:bg-blue-500/20 transition-colors no-underline"
-                >
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
-                  </span>
-                  <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">Live</span>
-                </Link>
-              )}
-
-              {/* Overflow menu */}
-              <Popover open={moreOpen} onOpenChange={setMoreOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon-xs">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-44 p-1" align="end">
-                  <button
-                    className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
-                    onClick={() => {
-                      navigator.clipboard.writeText(agent.id);
-                      setMoreOpen(false);
-                    }}
-                  >
-                    <Copy className="h-3 w-3" />
-                    Copy Agent ID
-                  </button>
-                  <button
-                    className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
-                    onClick={() => {
-                      resetTaskSession.mutate(null);
-                      setMoreOpen(false);
-                    }}
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Reset Sessions
-                  </button>
-                  <button
-                    className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-destructive"
-                    onClick={() => {
-                      agentAction.mutate("terminate");
-                      setMoreOpen(false);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    Terminate
-                  </button>
-                </PopoverContent>
-              </Popover>
-            </div>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <AgentIconPicker
+            value={agent.icon}
+            onChange={(icon) => updateIcon.mutate(icon)}
+          >
+            <button className="shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-accent hover:bg-accent/80 transition-colors">
+              <AgentIcon icon={agent.icon} className="h-6 w-6" />
+            </button>
+          </AgentIconPicker>
+          <div className="min-w-0">
+            <h2 className="text-2xl font-bold truncate">{agent.name}</h2>
+            <p className="text-sm text-muted-foreground truncate">
+              {roleLabels[agent.role] ?? agent.role}
+              {agent.title ? ` - ${agent.title}` : ""}
+            </p>
           </div>
-        </section>
+        </div>
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openNewIssue({ assigneeAgentId: agent.id })}
+          >
+            <Plus className="h-3.5 w-3.5 sm:mr-1" />
+            <span className="hidden sm:inline">Assign Task</span>
+          </Button>
+          <RunButton
+            onClick={() => agentAction.mutate("invoke")}
+            disabled={agentAction.isPending || isPendingApproval}
+            label="Run Heartbeat"
+          />
+          <PauseResumeButton
+            isPaused={agent.status === "paused"}
+            onPause={() => agentAction.mutate("pause")}
+            onResume={() => agentAction.mutate("resume")}
+            disabled={agentAction.isPending || isPendingApproval}
+          />
+          <span className="hidden sm:inline"><StatusBadge status={agent.status} /></span>
+          {mobileLiveRun && (
+            <Link
+              to={`/agents/${canonicalAgentRef}/runs/${mobileLiveRun.id}`}
+              className="sm:hidden flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 hover:bg-blue-500/20 transition-colors no-underline"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+              </span>
+              <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">Live</span>
+            </Link>
+          )}
 
-        {!urlRunId && (
-          <Tabs
+          {/* Overflow menu */}
+          <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon-xs">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-44 p-1" align="end">
+              <button
+                className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
+                onClick={() => {
+                  navigator.clipboard.writeText(agent.id);
+                  setMoreOpen(false);
+                }}
+              >
+                <Copy className="h-3 w-3" />
+                Copy Agent ID
+              </button>
+              <button
+                className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
+                onClick={() => {
+                  resetTaskSession.mutate(null);
+                  setMoreOpen(false);
+                }}
+              >
+                <RotateCcw className="h-3 w-3" />
+                Reset Sessions
+              </button>
+              <button
+                className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-destructive"
+                onClick={() => {
+                  agentAction.mutate("terminate");
+                  setMoreOpen(false);
+                }}
+              >
+                <Trash2 className="h-3 w-3" />
+                Terminate
+              </button>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      {!urlRunId && (
+        <Tabs
+          value={activeView}
+          onValueChange={(value) => navigate(`/agents/${canonicalAgentRef}/${value}`)}
+        >
+          <PageTabBar
+            items={[
+              { value: "dashboard", label: "Dashboard" },
+              { value: "instructions", label: "Instructions" },
+              { value: "skills", label: "Skills" },
+              { value: "configuration", label: "Configuration" },
+              { value: "runs", label: "Runs" },
+              { value: "budget", label: "Budget" },
+            ]}
             value={activeView}
             onValueChange={(value) => navigate(`/agents/${canonicalAgentRef}/${value}`)}
-          >
-            <PageTabBar
-              items={[
-                { value: "dashboard", label: "Dashboard" },
-                { value: "instructions", label: "Instructions" },
-                { value: "skills", label: "Skills" },
-                { value: "configuration", label: "Configuration" },
-                { value: "runs", label: "Runs" },
-                { value: "budget", label: "Budget" },
-              ]}
-              align="start"
-              variant="rail"
-              listClassName="max-w-full overflow-x-auto"
-              triggerClassName="min-h-10"
-              value={activeView}
-              onValueChange={(value) => navigate(`/agents/${canonicalAgentRef}/${value}`)}
-            />
-          </Tabs>
-        )}
-      </div>
+          />
+        </Tabs>
+      )}
 
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
       {isPendingApproval && (
@@ -1089,9 +1075,27 @@ function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: strin
   const isLive = run.status === "running" || run.status === "queued";
   const statusInfo = runStatusIcons[run.status] ?? { icon: Clock, color: "text-neutral-400" };
   const StatusIcon = statusInfo.icon;
-  const summary = run.resultJson
+  const summaryRaw = run.resultJson
     ? String((run.resultJson as Record<string, unknown>).summary ?? (run.resultJson as Record<string, unknown>).result ?? "")
     : run.error ?? "";
+
+  // Extract a clean 2-3 line excerpt: first non-empty, non-header, non-list-mark lines
+  const summary = useMemo(() => {
+    if (!summaryRaw) return "";
+    const lines = summaryRaw
+      .replace(/^#{1,6}\s+/gm, "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !l.startsWith("---") && !l.startsWith("|") && !l.startsWith("```") && !/^[-*>]/.test(l) && !/^\d+\./.test(l));
+    const excerpt: string[] = [];
+    let chars = 0;
+    for (const line of lines) {
+      if (excerpt.length >= 3 || chars + line.length > 280) break;
+      excerpt.push(line);
+      chars += line.length;
+    }
+    return excerpt.join(" ");
+  }, [summaryRaw]);
 
   return (
     <div className="space-y-3">
@@ -2184,7 +2188,7 @@ function PromptsTab({
                 return (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="ml-3 shrink-0 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-800 cursor-help dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+                      <span className="ml-3 shrink-0 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 px-1.5 py-0.5 text-[10px] uppercase tracking-wide cursor-help">
                         virtual file
                       </span>
                     </TooltipTrigger>
@@ -2365,6 +2369,7 @@ function AgentSkillsTab({
   const queryClient = useQueryClient();
   const [skillDraft, setSkillDraft] = useState<string[]>([]);
   const [lastSavedSkills, setLastSavedSkills] = useState<string[]>([]);
+  const [unmanagedOpen, setUnmanagedOpen] = useState(false);
   const lastSavedSkillsRef = useRef<string[]>([]);
   const hasHydratedSkillSnapshotRef = useRef(false);
   const skipNextSkillAutosaveRef = useRef(true);
@@ -2694,12 +2699,19 @@ function AgentSkillsTab({
 
                 {unmanagedSkillRows.length > 0 && (
                   <section className="border-y border-border">
-                    <div className="border-b border-border bg-muted/40 px-3 py-2">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="flex cursor-pointer items-center gap-2 border-b border-border bg-muted/40 px-3 py-2 select-none"
+                      onClick={() => setUnmanagedOpen((v) => !v)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setUnmanagedOpen((v) => !v); } }}
+                    >
                       <span className="text-xs font-medium text-muted-foreground">
-                        User-installed skills, not managed by Paperclip
+                        ({unmanagedSkillRows.length}) User-installed skills, not managed by Paperclip
                       </span>
+                      {unmanagedOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                     </div>
-                    {unmanagedSkillRows.map(renderSkillRow)}
+                    {unmanagedOpen && unmanagedSkillRows.map(renderSkillRow)}
                   </section>
                 )}
               </>

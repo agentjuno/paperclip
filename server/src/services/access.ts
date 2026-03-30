@@ -50,9 +50,6 @@ export function accessService(db: Db) {
   ): Promise<boolean> {
     const membership = await getMembership(companyId, principalType, principalId);
     if (!membership || membership.status !== "active") return false;
-    if (membership.membershipRole === "owner" || membership.membershipRole === "admin") {
-      return true;
-    }
     const grant = await db
       .select({ id: principalPermissionGrants.id })
       .from(principalPermissionGrants)

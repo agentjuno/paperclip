@@ -97,57 +97,24 @@ export function Activity() {
   const entityTypes = data
     ? [...new Set(data.map((e) => e.entityType))].sort()
     : [];
-  const eventCount = data?.length ?? 0;
-  const visibleCount = filtered?.length ?? 0;
 
   return (
-    <div className="space-y-5">
-      <section className="paperclip-panel paperclip-panel-strong command-fade-up p-5 sm:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <p className="paperclip-kicker">Operational log</p>
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Activity</h1>
-              <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                Follow board, agent, project, and approval events in a single timestamped stream.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
-                <span className="text-foreground">{eventCount}</span>
-                events
-              </span>
-              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
-                <span className="text-foreground">{entityTypes.length}</span>
-                types
-              </span>
-              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
-                <span className="text-foreground">{visibleCount}</span>
-                visible
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <p className="text-xs text-muted-foreground">
-              Filter by entity type without losing the live timeline.
-            </p>
-            <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="h-8 w-[160px] text-xs">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
-                {entityTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </section>
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <Select value={filter} onValueChange={setFilter}>
+          <SelectTrigger className="w-[140px] h-8 text-xs">
+            <SelectValue placeholder="Filter by type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            {entityTypes.map((type) => (
+              <SelectItem key={type} value={type}>
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
@@ -156,17 +123,7 @@ export function Activity() {
       )}
 
       {filtered && filtered.length > 0 && (
-        <div className="paperclip-panel">
-          <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
-            <div>
-              <p className="paperclip-kicker">Working surface</p>
-              <p className="text-sm text-muted-foreground">{visibleCount} visible event{visibleCount !== 1 ? "s" : ""}</p>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {filter === "all" ? "All types" : `${filter.charAt(0).toUpperCase() + filter.slice(1)} only`}
-            </p>
-          </div>
-          <div className="divide-y divide-border/60">
+        <div className="border border-border divide-y divide-border">
           {filtered.map((event) => (
             <ActivityRow
               key={event.id}
@@ -176,7 +133,6 @@ export function Activity() {
               entityTitleMap={entityTitleMap}
             />
           ))}
-          </div>
         </div>
       )}
     </div>

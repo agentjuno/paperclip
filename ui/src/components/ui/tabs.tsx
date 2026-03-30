@@ -30,7 +30,6 @@ const tabsListVariants = cva(
       variant: {
         default: "bg-muted",
         line: "gap-1 bg-transparent",
-        rail: "h-auto w-full justify-start gap-1 rounded-[1.4rem] border border-border/70 bg-background/72 p-1.5 shadow-[0_16px_40px_rgba(15,23,42,0.08)] backdrop-blur-sm",
       },
     },
     defaultVariants: {
@@ -65,7 +64,6 @@ function TabsTrigger({
       className={cn(
         "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring text-foreground/60 hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow] group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:border-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent",
-        "group-data-[variant=rail]/tabs-list:h-10 group-data-[variant=rail]/tabs-list:flex-none group-data-[variant=rail]/tabs-list:rounded-[1rem] group-data-[variant=rail]/tabs-list:px-4 group-data-[variant=rail]/tabs-list:text-foreground/65 group-data-[variant=rail]/tabs-list:hover:bg-background/50 group-data-[variant=rail]/tabs-list:hover:text-foreground group-data-[variant=rail]/tabs-list:data-[state=active]:border-border/65 group-data-[variant=rail]/tabs-list:data-[state=active]:bg-background group-data-[variant=rail]/tabs-list:data-[state=active]:text-foreground group-data-[variant=rail]/tabs-list:data-[state=active]:shadow-[0_10px_24px_rgba(15,23,42,0.08)] group-data-[variant=rail]/tabs-list:after:hidden",
         "data-[state=active]:bg-background dark:data-[state=active]:text-foreground dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 data-[state=active]:text-foreground",
         "after:bg-foreground after:absolute after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100",
         className

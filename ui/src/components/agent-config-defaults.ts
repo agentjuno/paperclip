@@ -1,7 +1,7 @@
 import type { CreateConfigValues } from "@paperclipai/adapter-utils";
 
 export const defaultCreateValues: CreateConfigValues = {
-  adapterType: "openclaw_gateway",
+  adapterType: "claude_local",
   cwd: "",
   instructionsFilePath: "",
   promptTemplate: "",

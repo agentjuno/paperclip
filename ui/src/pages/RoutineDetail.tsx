@@ -608,17 +608,13 @@ export function RoutineDetail() {
       ? "text-emerald-400"
       : "text-muted-foreground";
 
-  const shellClassName =
-    "rounded-3xl border border-border/70 bg-background/35 shadow-[0_24px_80px_rgba(0,0,0,0.22)] backdrop-blur-sm";
-
   return (
-    <div className="max-w-4xl space-y-6">
-      <section className={`${shellClassName} p-5 sm:p-6 space-y-5`}>
+    <div className="max-w-2xl space-y-6">
       {/* Header: editable title + actions */}
       <div className="flex items-start gap-4">
         <textarea
           ref={titleInputRef}
-          className="flex-1 min-w-0 resize-none overflow-hidden bg-transparent text-2xl font-semibold tracking-tight outline-none placeholder:text-muted-foreground/50 sm:text-[2rem]"
+          className="flex-1 min-w-0 resize-none overflow-hidden bg-transparent text-xl font-bold outline-none placeholder:text-muted-foreground/50"
           placeholder="Routine title"
           rows={1}
           value={editDraft.title}
@@ -671,11 +667,10 @@ export function RoutineDetail() {
           </span>
         </div>
       </div>
-      </section>
 
       {/* Secret message banner */}
       {secretMessage && (
-        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/5 p-4 space-y-3 text-sm backdrop-blur-sm">
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 space-y-3 text-sm">
           <div>
             <p className="font-medium">{secretMessage.title}</p>
             <p className="text-xs text-muted-foreground">Save this now. Paperclip will not show the secret value again.</p>
@@ -699,10 +694,9 @@ export function RoutineDetail() {
         </div>
       )}
 
-      <section className={`${shellClassName} p-5 sm:p-6 space-y-5`}>
-        {/* Assignment row */}
-        <div className="overflow-x-auto overscroll-x-contain">
-          <div className="inline-flex min-w-full flex-wrap items-center gap-2 text-sm text-muted-foreground sm:min-w-max sm:flex-nowrap">
+      {/* Assignment row */}
+      <div className="overflow-x-auto overscroll-x-contain">
+        <div className="inline-flex min-w-full flex-wrap items-center gap-2 text-sm text-muted-foreground sm:min-w-max sm:flex-nowrap">
           <span>For</span>
           <InlineEntitySelector
             ref={assigneeSelectorRef}
@@ -786,91 +780,91 @@ export function RoutineDetail() {
               );
             }}
           />
-          </div>
         </div>
+      </div>
 
-        {/* Instructions */}
-        <MarkdownEditor
-          ref={descriptionEditorRef}
-          value={editDraft.description}
-          onChange={(description) => setEditDraft((current) => ({ ...current, description }))}
-          placeholder="Add instructions..."
-          bordered={false}
-          contentClassName="min-h-[120px] text-[15px] leading-7"
-          onSubmit={() => {
-            if (!saveRoutine.isPending && editDraft.title.trim() && editDraft.projectId && editDraft.assigneeAgentId) {
-              saveRoutine.mutate();
-            }
-          }}
-        />
+      {/* Instructions */}
+      <MarkdownEditor
+        ref={descriptionEditorRef}
+        value={editDraft.description}
+        onChange={(description) => setEditDraft((current) => ({ ...current, description }))}
+        placeholder="Add instructions..."
+        bordered={false}
+        contentClassName="min-h-[120px] text-[15px] leading-7"
+        onSubmit={() => {
+          if (!saveRoutine.isPending && editDraft.title.trim() && editDraft.projectId && editDraft.assigneeAgentId) {
+            saveRoutine.mutate();
+          }
+        }}
+      />
 
-        {/* Advanced delivery settings */}
-        <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-2xl border border-border/70 bg-background/40 px-4 py-3 text-left">
-            <span className="text-sm font-medium">Advanced delivery settings</span>
-            {advancedOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2 rounded-2xl border border-border/70 bg-background/50 p-4">
-                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Concurrency</p>
-                <Select
-                  value={editDraft.concurrencyPolicy}
-                  onValueChange={(concurrencyPolicy) => setEditDraft((current) => ({ ...current, concurrencyPolicy }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {concurrencyPolicies.map((value) => (
-                      <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">{concurrencyPolicyDescriptions[editDraft.concurrencyPolicy]}</p>
-              </div>
-              <div className="space-y-2 rounded-2xl border border-border/70 bg-background/50 p-4">
-                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Catch-up</p>
-                <Select
-                  value={editDraft.catchUpPolicy}
-                  onValueChange={(catchUpPolicy) => setEditDraft((current) => ({ ...current, catchUpPolicy }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {catchUpPolicies.map((value) => (
-                      <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">{catchUpPolicyDescriptions[editDraft.catchUpPolicy]}</p>
-              </div>
+      {/* Advanced delivery settings */}
+      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+        <CollapsibleTrigger className="flex w-full items-center justify-between text-left">
+          <span className="text-sm font-medium">Advanced delivery settings</span>
+          {advancedOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Concurrency</p>
+              <Select
+                value={editDraft.concurrencyPolicy}
+                onValueChange={(concurrencyPolicy) => setEditDraft((current) => ({ ...current, concurrencyPolicy }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {concurrencyPolicies.map((value) => (
+                    <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{concurrencyPolicyDescriptions[editDraft.concurrencyPolicy]}</p>
             </div>
-          </CollapsibleContent>
-        </Collapsible>
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Catch-up</p>
+              <Select
+                value={editDraft.catchUpPolicy}
+                onValueChange={(catchUpPolicy) => setEditDraft((current) => ({ ...current, catchUpPolicy }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {catchUpPolicies.map((value) => (
+                    <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{catchUpPolicyDescriptions[editDraft.catchUpPolicy]}</p>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
-        {/* Save bar */}
-        <div className="flex items-center justify-between pt-1">
-          {isEditDirty ? (
-            <span className="text-xs text-amber-600">Unsaved changes</span>
-          ) : (
-            <span />
-          )}
-          <Button
-            onClick={() => saveRoutine.mutate()}
-            disabled={saveRoutine.isPending || !editDraft.title.trim() || !editDraft.projectId || !editDraft.assigneeAgentId}
-          >
-            <Save className="mr-2 h-4 w-4" />
-            Save routine
-          </Button>
-        </div>
-      </section>
+      {/* Save bar */}
+      <div className="flex items-center justify-between">
+        {isEditDirty ? (
+          <span className="text-xs text-amber-600">Unsaved changes</span>
+        ) : (
+          <span />
+        )}
+        <Button
+          onClick={() => saveRoutine.mutate()}
+          disabled={saveRoutine.isPending || !editDraft.title.trim() || !editDraft.projectId || !editDraft.assigneeAgentId}
+        >
+          <Save className="mr-2 h-4 w-4" />
+          Save routine
+        </Button>
+      </div>
+
+      <Separator />
 
       {/* Tabs */}
-      <section className={`${shellClassName} overflow-hidden`}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
-        <TabsList variant="line" className="w-full justify-start gap-1 px-4 pt-3 sm:px-5">
+        <TabsList variant="line" className="w-full justify-start gap-1">
           <TabsTrigger value="triggers" className="gap-1.5">
             <Clock3 className="h-3.5 w-3.5" />
             Triggers
@@ -886,9 +880,9 @@ export function RoutineDetail() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="triggers" className="space-y-4 px-4 pb-4 sm:px-5 sm:pb-5">
+        <TabsContent value="triggers" className="space-y-4">
           {/* Add trigger form */}
-          <div className="rounded-2xl border border-border/70 bg-background/50 p-4 space-y-3">
+          <div className="rounded-lg border border-border p-4 space-y-3">
             <p className="text-sm font-medium">Add trigger</p>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
@@ -963,14 +957,14 @@ export function RoutineDetail() {
           )}
         </TabsContent>
 
-        <TabsContent value="runs" className="space-y-4 px-4 pb-4 sm:px-5 sm:pb-5">
+        <TabsContent value="runs" className="space-y-4">
           {hasLiveRun && activeIssueId && routine && (
             <LiveRunWidget issueId={activeIssueId} companyId={routine.companyId} />
           )}
           {(routineRuns ?? []).length === 0 ? (
             <p className="text-xs text-muted-foreground">No runs yet.</p>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-border/70 divide-y divide-border/70">
+            <div className="border border-border rounded-lg divide-y divide-border">
               {(routineRuns ?? []).map((run) => (
                 <div key={run.id} className="flex items-center justify-between px-3 py-2 text-sm">
                   <div className="flex items-center gap-2 min-w-0">
@@ -994,11 +988,11 @@ export function RoutineDetail() {
           )}
         </TabsContent>
 
-        <TabsContent value="activity" className="px-4 pb-4 sm:px-5 sm:pb-5">
+        <TabsContent value="activity">
           {(activity ?? []).length === 0 ? (
             <p className="text-xs text-muted-foreground">No activity yet.</p>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-border/70 divide-y divide-border/70">
+            <div className="border border-border rounded-lg divide-y divide-border">
               {(activity ?? []).map((event) => (
                 <div key={event.id} className="flex items-center justify-between px-3 py-2 text-xs gap-4">
                   <div className="flex items-center gap-2 min-w-0">
@@ -1022,7 +1016,6 @@ export function RoutineDetail() {
           )}
         </TabsContent>
       </Tabs>
-      </section>
     </div>
   );
 }

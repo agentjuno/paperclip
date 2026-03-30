@@ -6,7 +6,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { agentApiKeys, companyMemberships, instanceUserRoles } from "@paperclipai/db";
 import type { DeploymentMode } from "@paperclipai/shared";
-import type { ResolvedSessionResult } from "../auth/company-session.js";
+import type { BetterAuthSessionResult } from "../auth/better-auth.js";
 import { logger } from "../middleware/logger.js";
 import { subscribeCompanyLiveEvents } from "../services/live-events.js";
 
@@ -99,7 +99,7 @@ async function authorizeUpgrade(
   url: URL,
   opts: {
     deploymentMode: DeploymentMode;
-    resolveSessionFromHeaders?: (headers: Headers) => Promise<ResolvedSessionResult | null>;
+    resolveSessionFromHeaders?: (headers: Headers) => Promise<BetterAuthSessionResult | null>;
   },
 ): Promise<UpgradeContext | null> {
   const queryToken = url.searchParams.get("token")?.trim() ?? "";
@@ -180,7 +180,7 @@ export function setupLiveEventsWebSocketServer(
   db: Db,
   opts: {
     deploymentMode: DeploymentMode;
-    resolveSessionFromHeaders?: (headers: Headers) => Promise<ResolvedSessionResult | null>;
+    resolveSessionFromHeaders?: (headers: Headers) => Promise<BetterAuthSessionResult | null>;
   },
 ) {
   const wss = new WebSocketServer({ noServer: true });

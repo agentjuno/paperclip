@@ -1,11 +1,10 @@
-import { Coins, UserPlus, Lightbulb, ShieldAlert, ShieldCheck } from "lucide-react";
+import { UserPlus, Lightbulb, ShieldAlert, ShieldCheck } from "lucide-react";
 import { formatCents } from "../lib/utils";
 
 export const typeLabel: Record<string, string> = {
   hire_agent: "Hire Agent",
   approve_ceo_strategy: "CEO Strategy",
   budget_override_required: "Budget Override",
-  token_launch: "Token Launch",
 };
 
 /** Build a contextual label for an approval, e.g. "Hire Agent: Designer" */
@@ -14,13 +13,6 @@ export function approvalLabel(type: string, payload?: Record<string, unknown> | 
   if (type === "hire_agent" && payload?.name) {
     return `${base}: ${String(payload.name)}`;
   }
-  if (type === "token_launch" && payload?.tokenName) {
-    const tokenName = String(payload.tokenName);
-    const tokenSymbol = typeof payload.tokenSymbol === "string" && payload.tokenSymbol.trim().length > 0
-      ? ` ($${payload.tokenSymbol})`
-      : "";
-    return `${base}: ${tokenName}${tokenSymbol}`;
-  }
   return base;
 }
 
@@ -28,7 +20,6 @@ export const typeIcon: Record<string, typeof UserPlus> = {
   hire_agent: UserPlus,
   approve_ceo_strategy: Lightbulb,
   budget_override_required: ShieldAlert,
-  token_launch: Coins,
 };
 
 export const defaultTypeIcon = ShieldCheck;
@@ -136,66 +127,8 @@ export function BudgetOverridePayload({ payload }: { payload: Record<string, unk
   );
 }
 
-function TokenLaunchPayload({ payload }: { payload: Record<string, unknown> }) {
-  const simulation =
-    payload.simulation && typeof payload.simulation === "object"
-      ? (payload.simulation as Record<string, unknown>)
-      : null;
-  const feeDistribution =
-    simulation?.feeDistribution && typeof simulation.feeDistribution === "object"
-      ? Object.entries(simulation.feeDistribution as Record<string, { address?: string; bps?: number }>)
-      : [];
-
-  return (
-    <div className="mt-3 space-y-2 text-sm">
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground w-20 sm:w-24 shrink-0 text-xs">Token</span>
-        <span className="font-medium">
-          {String(payload.tokenName ?? "—")}
-          {typeof payload.tokenSymbol === "string" && payload.tokenSymbol.trim().length > 0
-            ? ` ($${payload.tokenSymbol})`
-            : ""}
-        </span>
-      </div>
-      <PayloadField label="Fee wallet" value={payload.feeWalletAddress} />
-      <PayloadField label="Website" value={payload.tokenWebsiteUrl ?? payload.companyWebsiteUrl} />
-      <PayloadField label="Image" value={payload.imageUrl} />
-      {!!payload.launchRationale && (
-        <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap">
-          {String(payload.launchRationale)}
-        </div>
-      )}
-      {simulation && (
-        <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-1.5">
-          <div>
-            Simulated token {String(simulation.tokenAddress ?? "—")} · Pool {String(simulation.poolId ?? "—")}
-          </div>
-          <div>{String(simulation.chain ?? "base")}</div>
-          {feeDistribution.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {feeDistribution.map(([key, value]) => {
-                if (!value || typeof value !== "object") return null;
-                const bps = typeof value.bps === "number" ? value.bps : null;
-                return (
-                  <span
-                    key={key}
-                    className="rounded bg-background/70 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
-                  >
-                    {key}:{bps !== null ? ` ${(bps / 100).toFixed(2).replace(/\.?0+$/, "")}%` : ""}
-                  </span>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function ApprovalPayloadRenderer({ type, payload }: { type: string; payload: Record<string, unknown> }) {
   if (type === "hire_agent") return <HireAgentPayload payload={payload} />;
   if (type === "budget_override_required") return <BudgetOverridePayload payload={payload} />;
-  if (type === "token_launch") return <TokenLaunchPayload payload={payload} />;
   return <CeoStrategyPayload payload={payload} />;
 }

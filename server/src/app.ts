@@ -19,7 +19,6 @@ import { routineRoutes } from "./routes/routines.js";
 import { executionWorkspaceRoutes } from "./routes/execution-workspaces.js";
 import { goalRoutes } from "./routes/goals.js";
 import { approvalRoutes } from "./routes/approvals.js";
-import { tokenLaunchRoutes } from "./routes/token-launch.js";
 import { secretRoutes } from "./routes/secrets.js";
 import { costRoutes } from "./routes/costs.js";
 import { activityRoutes } from "./routes/activity.js";
@@ -47,11 +46,7 @@ import { createPluginDevWatcher } from "./services/plugin-dev-watcher.js";
 import { createPluginHostServiceCleanup } from "./services/plugin-host-service-cleanup.js";
 import { pluginRegistryService } from "./services/plugin-registry.js";
 import { createHostClientHandlers } from "@paperclipai/plugin-sdk";
-import {
-  COMPANY_SESSION_COOKIE_NAME,
-  getCompanySessionCookieDomain,
-  type ResolvedSessionResult,
-} from "./auth/company-session.js";
+import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
 
@@ -78,7 +73,7 @@ export async function createApp(
     hostVersion?: string;
     localPluginDir?: string;
     betterAuthHandler?: express.RequestHandler;
-    resolveSession?: (req: ExpressRequest) => Promise<ResolvedSessionResult | null>;
+    resolveSession?: (req: ExpressRequest) => Promise<BetterAuthSessionResult | null>;
   },
 ) {
   const app = express();
@@ -122,20 +117,10 @@ export async function createApp(
       },
       user: {
         id: req.actor.userId,
-        email: req.actor.userEmail ?? null,
-        name: req.actor.userName ?? (req.actor.source === "local_implicit" ? "Local Board" : null),
+        email: null,
+        name: req.actor.source === "local_implicit" ? "Local Board" : null,
       },
     });
-  });
-  app.post("/api/auth/sign-out", (_req, res) => {
-    res.clearCookie(COMPANY_SESSION_COOKIE_NAME, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      ...(getCompanySessionCookieDomain() ? { domain: getCompanySessionCookieDomain() } : {}),
-    });
-    res.json({ ok: true });
   });
   if (opts.betterAuthHandler) {
     app.all("/api/auth/*authPath", opts.betterAuthHandler);
@@ -155,7 +140,6 @@ export async function createApp(
     }),
   );
   api.use("/companies", companyRoutes(db, opts.storageService));
-  api.use(tokenLaunchRoutes(db));
   api.use(companySkillRoutes(db));
   api.use(agentRoutes(db));
   api.use(assetRoutes(db, opts.storageService));

@@ -241,8 +241,7 @@ export function IssueWorkspaceCard({ issue, project, onUpdate }: IssueWorkspaceC
   if (!policyEnabled || !project) return null;
 
   return (
-    <section className="rounded-3xl border border-border/70 bg-background/35 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.22)] backdrop-blur-sm sm:p-6">
-      <div className="space-y-3">
+    <div className="rounded-lg border border-border p-3 space-y-2">
       {/* Header row */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -399,7 +398,6 @@ export function IssueWorkspaceCard({ issue, project, onUpdate }: IssueWorkspaceC
           )}
         </div>
       )}
-      </div>
-    </section>
+    </div>
   );
 }

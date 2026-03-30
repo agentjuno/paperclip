@@ -17,8 +17,6 @@ import {
 import path from "node:path";
 import { detectClaudeLoginRequired, parseClaudeStreamJson } from "./parse.js";
 
-const DEFAULT_CLAUDE_SETTING_SOURCES = "project,local";
-
 function summarizeStatus(checks: AdapterEnvironmentCheck[]): AdapterEnvironmentTestResult["status"] {
   if (checks.some((check) => check.level === "error")) return "fail";
   if (checks.some((check) => check.level === "warn")) return "warn";
@@ -134,7 +132,6 @@ export async function testEnvironment(
       const chrome = asBoolean(config.chrome, false);
       const maxTurns = asNumber(config.maxTurnsPerRun, 0);
       const dangerouslySkipPermissions = asBoolean(config.dangerouslySkipPermissions, false);
-      const settingSources = asString(config.settingSources, DEFAULT_CLAUDE_SETTING_SOURCES).trim();
       const extraArgs = (() => {
         const fromExtraArgs = asStringArray(config.extraArgs);
         if (fromExtraArgs.length > 0) return fromExtraArgs;
@@ -142,7 +139,6 @@ export async function testEnvironment(
       })();
 
       const args = ["--print", "-", "--output-format", "stream-json", "--verbose"];
-      if (settingSources) args.push("--setting-sources", settingSources);
       if (dangerouslySkipPermissions) args.push("--dangerously-skip-permissions");
       if (chrome) args.push("--chrome");
       if (model) args.push("--model", model);

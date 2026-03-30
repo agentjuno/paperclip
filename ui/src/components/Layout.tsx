@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Moon, Settings, Sun } from "lucide-react";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "@/lib/router";
+import { CompanyRail } from "./CompanyRail";
 import { Sidebar } from "./Sidebar";
 import { InstanceSidebar } from "./InstanceSidebar";
 import { BreadcrumbBar } from "./BreadcrumbBar";
@@ -33,7 +34,6 @@ import { cn } from "../lib/utils";
 import { NotFoundPage } from "../pages/NotFound";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { OperationsRail } from "./OperationsRail";
 
 const INSTANCE_SETTINGS_MEMORY_KEY = "paperclip.lastInstanceSettingsPath";
 
@@ -286,20 +286,21 @@ export function Layout() {
         {isMobile ? (
           <div
             className={cn(
-              "fixed inset-y-0 left-0 z-50 flex w-[min(88vw,20rem)] flex-col overflow-hidden border-r border-border/70 bg-sidebar pt-[env(safe-area-inset-top)] transition-transform duration-100 ease-out",
+              "fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden pt-[env(safe-area-inset-top)] transition-transform duration-100 ease-out",
               sidebarOpen ? "translate-x-0" : "-translate-x-full"
             )}
           >
             <div className="flex flex-1 min-h-0 overflow-hidden">
+              <CompanyRail />
               {isInstanceSettingsRoute ? <InstanceSidebar /> : <Sidebar />}
             </div>
-            <div className="border-t border-border/70 bg-sidebar px-3 py-2">
+            <div className="border-t border-r border-border px-3 py-2 bg-background">
               <div className="flex items-center gap-1">
                 <a
                   href="https://docs.paperclip.ing/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium text-foreground/80 transition-colors hover:bg-accent/50 hover:text-foreground"
+                  className="flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors text-foreground/80 hover:bg-accent/50 hover:text-foreground flex-1 min-w-0"
                 >
                   <BookOpen className="h-4 w-4 shrink-0" />
                   <span className="truncate">Documentation</span>
@@ -339,22 +340,25 @@ export function Layout() {
             </div>
           </div>
         ) : (
-          <div className="flex h-full flex-col shrink-0 border-r border-border/70 bg-sidebar">
-            <div
-              className={cn(
-                "overflow-hidden transition-[width] duration-100 ease-out",
-                sidebarOpen ? "w-[17rem]" : "w-0"
-              )}
-            >
-              {isInstanceSettingsRoute ? <InstanceSidebar /> : <Sidebar />}
+          <div className="flex h-full flex-col shrink-0">
+            <div className="flex flex-1 min-h-0">
+              <CompanyRail />
+              <div
+                className={cn(
+                  "overflow-hidden transition-[width] duration-100 ease-out",
+                  sidebarOpen ? "w-60" : "w-0"
+                )}
+              >
+                {isInstanceSettingsRoute ? <InstanceSidebar /> : <Sidebar />}
+              </div>
             </div>
-            <div className="border-t border-border/70 px-3 py-2">
+            <div className="border-t border-r border-border px-3 py-2">
               <div className="flex items-center gap-1">
                 <a
                   href="https://docs.paperclip.ing/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium text-foreground/80 transition-colors hover:bg-accent/50 hover:text-foreground"
+                  className="flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors text-foreground/80 hover:bg-accent/50 hover:text-foreground flex-1 min-w-0"
                 >
                   <BookOpen className="h-4 w-4 shrink-0" />
                   <span className="truncate">Documentation</span>
@@ -408,7 +412,7 @@ export function Layout() {
               id="main-content"
               tabIndex={-1}
               className={cn(
-                "paperclip-grid flex-1 p-4 md:p-6 xl:p-8",
+                "flex-1 p-4 md:p-6",
                 isMobile ? "overflow-visible pb-[calc(5rem+env(safe-area-inset-bottom))]" : "overflow-auto",
               )}
             >
@@ -421,7 +425,6 @@ export function Layout() {
                 <Outlet />
               )}
             </main>
-            {!isInstanceSettingsRoute ? <OperationsRail companyId={selectedCompanyId} /> : null}
             <PropertiesPanel />
           </div>
         </div>

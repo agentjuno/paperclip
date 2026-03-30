@@ -166,17 +166,14 @@ export function ApprovalDetail() {
             to: `/agents/${linkedAgentId}`,
           }
         : {
-          label: "Back to approvals",
-          to: "/approvals",
-        };
-
-  const shellClassName =
-    "rounded-3xl border border-border/70 bg-background/35 shadow-[0_24px_80px_rgba(0,0,0,0.22)] backdrop-blur-sm";
+            label: "Back to approvals",
+            to: "/approvals",
+          };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-3xl">
       {showApprovedBanner && (
-        <div className="rounded-2xl border border-green-300/70 dark:border-green-700/40 bg-green-50/70 dark:bg-green-900/20 px-4 py-3 animate-in fade-in zoom-in-95 duration-300 backdrop-blur-sm">
+        <div className="border border-green-300 dark:border-green-700/40 bg-green-50 dark:bg-green-900/20 rounded-lg px-4 py-3 animate-in fade-in zoom-in-95 duration-300">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2">
               <div className="relative mt-0.5">
@@ -201,89 +198,74 @@ export function ApprovalDetail() {
           </div>
         </div>
       )}
-      <section className={`${shellClassName} p-5 sm:p-6 space-y-5`}>
-        <div className="space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 space-y-3">
-              <div className="flex items-center gap-2">
-                <TypeIcon className="h-5 w-5 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
-                    {approvalLabel(approval.type, approval.payload as Record<string, unknown> | null)}
-                  </h2>
-                  <p className="text-xs text-muted-foreground font-mono">{approval.id}</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                <span>Approval request</span>
-                {approval.requestedByAgentId && (
-                  <>
-                    <span className="h-1 w-1 rounded-full bg-emerald-400/80" />
-                    <Identity
-                      name={agentNameById.get(approval.requestedByAgentId) ?? approval.requestedByAgentId.slice(0, 8)}
-                      size="sm"
-                    />
-                  </>
-                )}
-              </div>
+      <div className="border border-border rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TypeIcon className="h-5 w-5 text-muted-foreground shrink-0" />
+            <div>
+              <h2 className="text-lg font-semibold">{approvalLabel(approval.type, approval.payload as Record<string, unknown> | null)}</h2>
+              <p className="text-xs text-muted-foreground font-mono">{approval.id}</p>
             </div>
-            <StatusBadge status={approval.status} />
           </div>
-
-          <div className="rounded-2xl border border-border/70 bg-background/50 p-4 space-y-3">
-            <ApprovalPayloadRenderer type={approval.type} payload={payload} />
-            <button
-              type="button"
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => setShowRawPayload((v) => !v)}
-            >
-              <ChevronRight className={`h-3 w-3 transition-transform ${showRawPayload ? "rotate-90" : ""}`} />
-              See full request
-            </button>
-            {showRawPayload && (
-              <pre className="overflow-x-auto rounded-xl border border-border/70 bg-background/70 p-3 text-xs">
-                {JSON.stringify(payload, null, 2)}
-              </pre>
-            )}
-            {approval.decisionNote && (
-              <p className="text-xs text-muted-foreground">Decision note: {approval.decisionNote}</p>
-            )}
-          </div>
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {linkedIssues && linkedIssues.length > 0 && (
-            <div className="rounded-2xl border border-border/70 bg-background/50 p-4 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Linked issues</p>
-                <span className="text-[11px] text-muted-foreground">{linkedIssues.length}</span>
-              </div>
-              <div className="space-y-1.5">
-                {linkedIssues.map((issue) => (
-                  <Link
-                    key={issue.id}
-                    to={`/issues/${issue.identifier ?? issue.id}`}
-                    className="block rounded-xl border border-border/70 px-3 py-2 text-xs transition-colors hover:bg-accent/20"
-                  >
-                    <span className="font-mono text-muted-foreground mr-2">
-                      {issue.identifier ?? issue.id.slice(0, 8)}
-                    </span>
-                    <span>{issue.title}</span>
-                  </Link>
-                ))}
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Linked issues remain open until the requesting agent follows up and closes them.
-              </p>
+          <StatusBadge status={approval.status} />
+        </div>
+        <div className="text-sm space-y-1">
+          {approval.requestedByAgentId && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-xs">Requested by</span>
+              <Identity
+                name={agentNameById.get(approval.requestedByAgentId) ?? approval.requestedByAgentId.slice(0, 8)}
+                size="sm"
+              />
             </div>
           )}
+          <ApprovalPayloadRenderer type={approval.type} payload={payload} />
+          <button
+            type="button"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2"
+            onClick={() => setShowRawPayload((v) => !v)}
+          >
+            <ChevronRight className={`h-3 w-3 transition-transform ${showRawPayload ? "rotate-90" : ""}`} />
+            See full request
+          </button>
+          {showRawPayload && (
+            <pre className="text-xs bg-muted/40 rounded-md p-3 overflow-x-auto">
+              {JSON.stringify(payload, null, 2)}
+            </pre>
+          )}
+          {approval.decisionNote && (
+            <p className="text-xs text-muted-foreground">Decision note: {approval.decisionNote}</p>
+          )}
         </div>
-
-        <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {linkedIssues && linkedIssues.length > 0 && (
+          <div className="pt-2 border-t border-border/60">
+            <p className="text-xs text-muted-foreground mb-1.5">Linked Issues</p>
+            <div className="space-y-1.5">
+              {linkedIssues.map((issue) => (
+                <Link
+                  key={issue.id}
+                  to={`/issues/${issue.identifier ?? issue.id}`}
+                  className="block text-xs rounded border border-border/70 px-2 py-1.5 hover:bg-accent/20"
+                >
+                  <span className="font-mono text-muted-foreground mr-2">
+                    {issue.identifier ?? issue.id.slice(0, 8)}
+                  </span>
+                  <span>{issue.title}</span>
+                </Link>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Linked issues remain open until the requesting agent follows up and closes them.
+            </p>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
           {isActionable && !isBudgetApproval && (
             <>
               <Button
                 size="sm"
-                className="bg-emerald-700 hover:bg-emerald-600 text-white"
+                className="bg-green-700 hover:bg-green-600 text-white"
                 onClick={() => approveMutation.mutate()}
                 disabled={approveMutation.isPending}
               >
@@ -339,18 +321,14 @@ export function ApprovalDetail() {
             </Button>
           )}
         </div>
-      </section>
+      </div>
 
-      <section className={`${shellClassName} p-5 sm:p-6 space-y-4`}>
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            Comments ({comments?.length ?? 0})
-          </h3>
-        </div>
+      <div className="border border-border rounded-lg p-4 space-y-3">
+        <h3 className="text-sm font-medium">Comments ({comments?.length ?? 0})</h3>
         <div className="space-y-2">
           {(comments ?? []).map((comment: ApprovalComment) => (
-            <div key={comment.id} className="rounded-2xl border border-border/70 bg-background/50 p-4">
-              <div className="mb-2 flex items-center justify-between gap-2">
+            <div key={comment.id} className="border border-border/60 rounded-md p-3">
+              <div className="flex items-center justify-between mb-1">
                 {comment.authorAgentId ? (
                   <Link to={`/agents/${comment.authorAgentId}`} className="hover:underline">
                     <Identity
@@ -374,7 +352,6 @@ export function ApprovalDetail() {
           onChange={(e) => setCommentBody(e.target.value)}
           placeholder="Add a comment..."
           rows={3}
-          className="bg-background/40"
         />
         <div className="flex justify-end">
           <Button
@@ -385,7 +362,7 @@ export function ApprovalDetail() {
             {addCommentMutation.isPending ? "Posting…" : "Post comment"}
           </Button>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

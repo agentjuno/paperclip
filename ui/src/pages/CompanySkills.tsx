@@ -1044,45 +1044,9 @@ export function CompanySkills() {
         </DialogContent>
       </Dialog>
 
-      <section className="command-hero-shell command-fade-up px-5 py-5 sm:px-6 lg:px-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-3">
-            <div className="paperclip-kicker flex items-center gap-3">
-              <span>Governance / Skills</span>
-              <span className="h-px w-8 bg-border/80" />
-              <span>{activeDetail?.name ?? "Catalog"}</span>
-            </div>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-                Company Skills
-              </h1>
-              <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                Import, scan, update, and edit skills in a control-plane layout instead of a plain file browser.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[24rem]">
-            <div className="paperclip-panel px-4 py-3">
-              <div className="paperclip-kicker">Available</div>
-              <div className="mt-2 text-2xl font-semibold tabular-nums">{skillsQuery.data?.length ?? 0}</div>
-            </div>
-            <div className="paperclip-panel px-4 py-3">
-              <div className="paperclip-kicker">Selected</div>
-              <div className="mt-2 truncate text-2xl font-semibold">{activeDetail?.name ?? "None"}</div>
-            </div>
-            <div className="paperclip-panel px-4 py-3">
-              <div className="paperclip-kicker">Status</div>
-              <div className="mt-2 text-2xl font-semibold">{updateStatusQuery.data ? "Live" : "Idle"}</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="paperclip-panel command-fade-up command-fade-delay-1 overflow-hidden">
       <div className="grid min-h-[calc(100vh-12rem)] gap-0 xl:grid-cols-[19rem_minmax(0,1fr)]">
-        <aside className="border-r border-border/70 bg-background/40">
-          <div className="border-b border-border/70 px-4 py-3">
+        <aside className="border-r border-border">
+          <div className="border-b border-border px-4 py-3">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h1 className="text-base font-semibold">Skills</h1>
@@ -1106,7 +1070,7 @@ export function CompanySkills() {
               </div>
             </div>
 
-            <div className="mt-3 flex items-center gap-2 border-b border-border/70 pb-2">
+            <div className="mt-3 flex items-center gap-2 border-b border-border pb-2">
               <Search className="h-4 w-4 text-muted-foreground" />
               <input
                 value={skillFilter}
@@ -1116,7 +1080,7 @@ export function CompanySkills() {
               />
             </div>
 
-            <div className="mt-3 flex items-center gap-2 border-b border-border/70 pb-2">
+            <div className="mt-3 flex items-center gap-2 border-b border-border pb-2">
               <input
                 value={source}
                 onChange={(event) => setSource(event.target.value)}
@@ -1176,7 +1140,7 @@ export function CompanySkills() {
           )}
         </aside>
 
-        <div className="min-w-0 bg-background/30 pl-6">
+        <div className="min-w-0 pl-6">
           <SkillPane
             loading={skillsQuery.isLoading || detailQuery.isLoading}
             detail={activeDetail}
@@ -1201,7 +1165,6 @@ export function CompanySkills() {
           />
         </div>
       </div>
-      </section>
     </>
   );
 }

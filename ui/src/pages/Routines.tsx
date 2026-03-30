@@ -216,11 +216,6 @@ export function Routines() {
   );
   const currentAssignee = draft.assigneeAgentId ? agentById.get(draft.assigneeAgentId) ?? null : null;
   const currentProject = draft.projectId ? projectById.get(draft.projectId) ?? null : null;
-  const totalRoutines = routines?.length ?? 0;
-  const activeRoutines = (routines ?? []).filter((routine) => routine.status === "active").length;
-  const pausedRoutines = (routines ?? []).filter((routine) => routine.status === "paused").length;
-  const archivedRoutines = (routines ?? []).filter((routine) => routine.status === "archived").length;
-  const recentRunCount = (routines ?? []).filter((routine) => routine.lastRun).length;
 
   if (!selectedCompanyId) {
     return <EmptyState icon={Repeat} message="Select a company to view routines." />;
@@ -231,52 +226,22 @@ export function Routines() {
   }
 
   return (
-    <div className="space-y-5">
-      <section className="paperclip-panel paperclip-panel-strong command-fade-up p-5 sm:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <p className="paperclip-kicker">Automation index</p>
-              <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-                Routines
-                <span className="border border-border/60 bg-background/30 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Beta
-                </span>
-              </h1>
-              <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                Recurring work definitions that materialize into auditable execution issues.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
-                <span className="text-foreground">{totalRoutines}</span>
-                total
-              </span>
-              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
-                <span className="text-foreground">{activeRoutines}</span>
-                active
-              </span>
-              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
-                <span className="text-foreground">{pausedRoutines}</span>
-                paused
-              </span>
-              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
-                <span className="text-foreground">{archivedRoutines}</span>
-                archived
-              </span>
-              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
-                <span className="text-foreground">{recentRunCount}</span>
-                recent runs
-              </span>
-            </div>
-          </div>
-
-          <Button onClick={() => setComposerOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create routine
-          </Button>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+            Routines
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">Beta</span>
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Recurring work definitions that materialize into auditable execution issues.
+          </p>
         </div>
-      </section>
+        <Button onClick={() => setComposerOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Create routine
+        </Button>
+      </div>
 
       <Dialog
         open={composerOpen}
@@ -525,7 +490,7 @@ export function Routines() {
       </Dialog>
 
       {error ? (
-        <Card className="paperclip-panel">
+        <Card>
           <CardContent className="pt-6 text-sm text-destructive">
             {error instanceof Error ? error.message : "Failed to load routines"}
           </CardContent>
@@ -541,17 +506,10 @@ export function Routines() {
             />
           </div>
         ) : (
-          <div className="paperclip-panel command-fade-up overflow-x-auto">
-            <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
-              <div>
-                <p className="paperclip-kicker">Working surface</p>
-                <p className="text-sm text-muted-foreground">Routine table</p>
-              </div>
-              <p className="text-xs text-muted-foreground">{totalRoutines} routines</p>
-            </div>
+          <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground border-b border-border">
                   <th className="px-3 py-2 font-medium">Name</th>
                   <th className="px-3 py-2 font-medium">Project</th>
                   <th className="px-3 py-2 font-medium">Agent</th>
@@ -568,7 +526,7 @@ export function Routines() {
                   return (
                     <tr
                       key={routine.id}
-                      className="cursor-pointer align-middle border-b border-border transition-colors hover:bg-accent/30 last:border-b-0"
+                      className="align-middle border-b border-border transition-colors hover:bg-accent/50 last:border-b-0 cursor-pointer"
                       onClick={() => navigate(`/routines/${routine.id}`)}
                     >
                       <td className="px-3 py-2.5">

@@ -5,7 +5,7 @@ import type { Db } from "@paperclipai/db";
 import { agentApiKeys, agents, companyMemberships, instanceUserRoles } from "@paperclipai/db";
 import { verifyLocalAgentJwt } from "../agent-auth-jwt.js";
 import type { DeploymentMode } from "@paperclipai/shared";
-import type { ResolvedSessionResult } from "../auth/company-session.js";
+import type { BetterAuthSessionResult } from "../auth/better-auth.js";
 import { logger } from "./logger.js";
 import { boardAuthService } from "../services/board-auth.js";
 
@@ -15,7 +15,7 @@ function hashToken(token: string) {
 
 interface ActorMiddlewareOptions {
   deploymentMode: DeploymentMode;
-  resolveSession?: (req: Request) => Promise<ResolvedSessionResult | null>;
+  resolveSession?: (req: Request) => Promise<BetterAuthSessionResult | null>;
 }
 
 export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHandler {
@@ -23,14 +23,7 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
   return async (req, _res, next) => {
     req.actor =
       opts.deploymentMode === "local_trusted"
-        ? {
-          type: "board",
-          userId: "local-board",
-          userEmail: "local@paperclip.local",
-          userName: "Local Board",
-          isInstanceAdmin: true,
-          source: "local_implicit",
-        }
+        ? { type: "board", userId: "local-board", isInstanceAdmin: true, source: "local_implicit" }
         : { type: "none", source: "none" };
 
     const runIdHeader = req.header("x-paperclip-run-id");
@@ -38,7 +31,7 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
     const authHeader = req.header("authorization");
     if (!authHeader?.toLowerCase().startsWith("bearer ")) {
       if (opts.deploymentMode === "authenticated" && opts.resolveSession) {
-        let session: ResolvedSessionResult | null = null;
+        let session: BetterAuthSessionResult | null = null;
         try {
           session = await opts.resolveSession(req);
         } catch (err) {
@@ -69,8 +62,6 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
           req.actor = {
             type: "board",
             userId,
-            userEmail: session.user.email,
-            userName: session.user.name,
             companyIds: memberships.map((row) => row.companyId),
             isInstanceAdmin: Boolean(roleRow),
             runId: runIdHeader ?? undefined,

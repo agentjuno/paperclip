@@ -126,7 +126,7 @@ export function PluginSettings() {
   }, [pluginId]);
 
   if (pluginLoading) {
-    return <div className="paperclip-panel rounded-[24px] px-4 py-3 text-sm text-muted-foreground">Loading plugin details…</div>;
+    return <div className="p-4 text-sm text-muted-foreground">Loading plugin details...</div>;
   }
 
   if (!plugin) {
@@ -144,31 +144,22 @@ export function PluginSettings() {
   const pluginCapabilities = plugin.manifestJson.capabilities ?? [];
 
   return (
-    <div className="max-w-5xl space-y-6">
-      <div className="paperclip-panel paperclip-panel-strong rounded-[28px] p-5 sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              <Puzzle className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Instance settings / plugin detail</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-3xl font-semibold tracking-tight">
-                {plugin.manifestJson.displayName ?? plugin.packageName}
-              </h1>
-              <Badge variant={statusVariant}>{displayStatus}</Badge>
-              <Badge variant="outline">v{plugin.manifestJson.version ?? plugin.version}</Badge>
-            </div>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              Detailed settings and diagnostics for the selected plugin.
-            </p>
-          </div>
-          <Button variant="outline" size="sm" asChild className="h-9 rounded-xl">
-            <Link to="/instance/settings/plugins">
-              <ArrowLeft className="mr-1 h-4 w-4" />
-              Back
-            </Link>
+    <div className="space-y-6 max-w-5xl">
+      <div className="flex items-center gap-4">
+        <Link to="/instance/settings/plugins">
+          <Button variant="outline" size="icon" className="h-8 w-8">
+            <ArrowLeft className="h-4 w-4" />
           </Button>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Puzzle className="h-6 w-6 text-muted-foreground" />
+          <h1 className="text-xl font-semibold">{plugin.manifestJson.displayName ?? plugin.packageName}</h1>
+          <Badge variant={statusVariant} className="ml-2">
+            {displayStatus}
+          </Badge>
+          <Badge variant="outline" className="ml-1">
+            v{plugin.manifestJson.version ?? plugin.version}
+          </Badge>
         </div>
       </div>
 
@@ -185,7 +176,7 @@ export function PluginSettings() {
 
         <TabsContent value="configuration" className="space-y-6">
           <div className="space-y-8">
-            <section className="paperclip-panel rounded-[28px] p-5 sm:p-6 space-y-5">
+            <section className="space-y-5">
               <h2 className="text-base font-semibold">About</h2>
               <div className="grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(220px,0.8fr)]">
                 <div className="space-y-2">
@@ -217,7 +208,7 @@ export function PluginSettings() {
 
             <Separator />
 
-            <section className="paperclip-panel rounded-[28px] p-5 sm:p-6 space-y-4">
+            <section className="space-y-4">
               <div className="space-y-1">
                 <h2 className="text-base font-semibold">Settings</h2>
               </div>
@@ -256,7 +247,7 @@ export function PluginSettings() {
         <TabsContent value="status" className="space-y-6">
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_320px]">
             <div className="space-y-6">
-              <Card className="paperclip-panel rounded-[28px] border-border/70">
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-1.5">
                     <Cpu className="h-4 w-4" />
@@ -329,7 +320,10 @@ export function PluginSettings() {
                         {dashboardData.recentJobRuns.length > 0 ? (
                           <div className="space-y-2">
                             {dashboardData.recentJobRuns.map((run) => (
-                              <div key={run.id} className="flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-background/40 px-3 py-2 text-sm">
+                              <div
+                                key={run.id}
+                                className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-sm"
+                              >
                                 <div className="flex min-w-0 items-center gap-2">
                                   <JobStatusDot status={run.status} />
                                   <span className="truncate font-mono text-xs" title={run.jobKey ?? run.jobId}>
@@ -361,7 +355,10 @@ export function PluginSettings() {
                         {dashboardData.recentWebhookDeliveries.length > 0 ? (
                           <div className="space-y-2">
                             {dashboardData.recentWebhookDeliveries.map((delivery) => (
-                              <div key={delivery.id} className="flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-background/40 px-3 py-2 text-sm">
+                              <div
+                                key={delivery.id}
+                                className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-sm"
+                              >
                                 <div className="flex min-w-0 items-center gap-2">
                                   <DeliveryStatusDot status={delivery.status} />
                                   <span className="truncate font-mono text-xs" title={delivery.webhookKey}>
@@ -394,7 +391,7 @@ export function PluginSettings() {
               </Card>
 
               {recentLogs && recentLogs.length > 0 ? (
-                <Card className="paperclip-panel rounded-[28px] border-border/70">
+                <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-1.5">
                       <ActivitySquare className="h-4 w-4" />
@@ -488,10 +485,10 @@ export function PluginSettings() {
                 </CardContent>
               </Card>
 
-                <Card className="paperclip-panel rounded-[28px] border-border/70">
-                  <CardHeader>
-                    <CardTitle className="text-base">Details</CardTitle>
-                  </CardHeader>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Details</CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-3 text-sm text-muted-foreground">
                   <div className="flex justify-between gap-3">
                     <span>Plugin ID</span>
@@ -514,10 +511,10 @@ export function PluginSettings() {
                 </CardContent>
               </Card>
 
-                <Card className="paperclip-panel rounded-[28px] border-border/70">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-1.5">
-                      <ShieldAlert className="h-4 w-4" />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-1.5">
+                    <ShieldAlert className="h-4 w-4" />
                     Permissions
                   </CardTitle>
                 </CardHeader>
@@ -662,9 +659,9 @@ function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginSt
 
   if (isLoading) {
     return (
-      <div className="paperclip-panel flex items-center gap-2 rounded-[24px] px-4 py-3 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
         <Loader2 className="h-4 w-4 animate-spin" />
-        Loading configuration…
+        Loading configuration...
       </div>
     );
   }
@@ -682,7 +679,7 @@ function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginSt
       {/* Status messages */}
       {saveMessage && (
         <div
-          className={`text-sm rounded-xl border px-3 py-2 ${
+          className={`text-sm p-2 rounded border ${
             saveMessage.type === "success"
               ? "text-green-700 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-950/30 dark:border-green-900"
               : "text-destructive bg-destructive/10 border-destructive/20"
@@ -694,7 +691,7 @@ function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginSt
 
       {testResult && (
         <div
-          className={`text-sm rounded-xl border px-3 py-2 ${
+          className={`text-sm p-2 rounded border ${
             testResult.type === "success"
               ? "text-green-700 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-950/30 dark:border-green-900"
               : "text-destructive bg-destructive/10 border-destructive/20"

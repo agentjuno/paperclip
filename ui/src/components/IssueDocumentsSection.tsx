@@ -90,14 +90,12 @@ export function IssueDocumentsSection({
   mentions,
   imageUploadHandler,
   extraActions,
-  compactWhenEmpty = false,
 }: {
   issue: Issue;
   canDeleteDocuments: boolean;
   mentions?: MentionOption[];
   imageUploadHandler?: (file: File) => Promise<string>;
   extraActions?: ReactNode;
-  compactWhenEmpty?: boolean;
 }) {
   const queryClient = useQueryClient();
   const location = useLocation();
@@ -521,33 +519,14 @@ export function IssueDocumentsSection({
   return (
     <div className="space-y-3">
       {isEmpty && !draft?.isNew ? (
-        compactWhenEmpty ? (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <p className="paperclip-kicker text-[0.58rem]">Task Assets</p>
-              <p className="text-xs text-muted-foreground">
-                Attach supporting files or create a working note when this task needs durable context.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {extraActions}
-              <Button variant="outline" size="sm" onClick={beginNewDocument} className="shrink-0">
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">New document</span>
-                <span className="sm:hidden">New</span>
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-end gap-2 min-w-0">
-            {extraActions}
-            <Button variant="outline" size="sm" onClick={beginNewDocument} className="shrink-0">
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              <span className="hidden sm:inline">New document</span>
-              <span className="sm:hidden">New</span>
-            </Button>
-          </div>
-        )
+        <div className="flex items-center justify-end gap-2 min-w-0">
+          {extraActions}
+          <Button variant="outline" size="sm" onClick={beginNewDocument} className="shrink-0">
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            <span className="hidden sm:inline">New document</span>
+            <span className="sm:hidden">New</span>
+          </Button>
+        </div>
       ) : (
         <div className="flex items-center justify-between gap-2 min-w-0">
           <h3 className="text-sm font-medium text-muted-foreground shrink-0">Documents</h3>
@@ -752,7 +731,7 @@ export function IssueDocumentsSection({
                     <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-3">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="space-y-1">
-                          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Out of date</p>
+                          <p className="text-sm font-medium text-amber-200">Out of date</p>
                           <p className="text-xs text-muted-foreground">
                             This document changed while you were editing. Your local draft is preserved and autosave is paused.
                           </p>
@@ -854,7 +833,7 @@ export function IssueDocumentsSection({
                     <span
                       className={`text-[11px] transition-opacity duration-150 ${
                         activeConflict
-                          ? "text-amber-700 dark:text-amber-300"
+                          ? "text-amber-300"
                           : autosaveState === "error"
                             ? "text-destructive"
                             : "text-muted-foreground"

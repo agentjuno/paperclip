@@ -73,15 +73,15 @@ function SortableProjectItem({
     >
       <div className="flex flex-col gap-0.5">
         <NavLink
-          to={`/projects/${routeRef}`}
+          to={`/projects/${routeRef}/issues`}
           onClick={() => {
             if (isMobile) setSidebarOpen(false);
           }}
-            className={cn(
-              "flex items-center gap-2.5 rounded-xl border border-transparent px-3 py-2 text-[13px] font-medium transition-all",
-              activeProjectRef === routeRef || activeProjectRef === project.id
-              ? "border-primary/25 bg-primary/[0.08] text-foreground shadow-[0_12px_28px_rgba(15,23,42,0.08)] dark:bg-[linear-gradient(135deg,rgba(198,168,98,0.14),rgba(94,168,156,0.05)_72%,rgba(255,255,255,0.02))] dark:shadow-none"
-              : "text-foreground/72 hover:bg-accent/24 hover:text-foreground",
+          className={cn(
+            "flex items-center gap-2.5 px-3 py-1.5 text-[13px] font-medium transition-colors",
+            activeProjectRef === routeRef || activeProjectRef === project.id
+              ? "bg-accent text-foreground"
+              : "text-foreground/80 hover:bg-accent/50 hover:text-foreground",
           )}
         >
           <span
@@ -176,15 +176,15 @@ export function SidebarProjects() {
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <div className="group">
-        <div className="flex items-center py-1">
+        <div className="flex items-center px-3 py-1.5">
           <CollapsibleTrigger className="flex items-center gap-1 flex-1 min-w-0">
             <ChevronRight
               className={cn(
-                "h-3 w-3 text-muted-foreground/60 transition-transform opacity-100",
+                "h-3 w-3 text-muted-foreground/60 transition-transform opacity-0 group-hover:opacity-100",
                 open && "rotate-90"
               )}
             />
-            <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-muted-foreground/55">
+            <span className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
               Projects
             </span>
           </CollapsibleTrigger>
@@ -193,10 +193,10 @@ export function SidebarProjects() {
               e.stopPropagation();
               openNewProject();
             }}
-            className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-accent/50 hover:text-foreground"
+            className="flex items-center justify-center h-4 w-4 rounded text-muted-foreground/60 hover:text-foreground hover:bg-accent/50 transition-colors"
             aria-label="New project"
           >
-          <Plus className="h-3 w-3" />
+            <Plus className="h-3 w-3" />
           </button>
         </div>
       </div>
@@ -211,7 +211,7 @@ export function SidebarProjects() {
             items={orderedProjects.map((project) => project.id)}
             strategy={verticalListSortingStrategy}
           >
-            <div className="mt-1 flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5 mt-0.5">
               {orderedProjects.map((project: Project) => (
                 <SortableProjectItem
                   key={project.id}

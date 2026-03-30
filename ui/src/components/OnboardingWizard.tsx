@@ -56,12 +56,14 @@ import {
   ChevronDown,
   X
 } from "lucide-react";
+import { HermesIcon } from "./HermesIcon";
 
 type Step = 1 | 2 | 3 | 4;
 type AdapterType =
   | "claude_local"
   | "codex_local"
   | "gemini_local"
+  | "hermes_local"
   | "opencode_local"
   | "pi_local"
   | "cursor"
@@ -112,7 +114,7 @@ export function OnboardingWizard() {
 
   // Step 2
   const [agentName, setAgentName] = useState("CEO");
-  const [adapterType, setAdapterType] = useState<AdapterType>("openclaw_gateway");
+  const [adapterType, setAdapterType] = useState<AdapterType>("claude_local");
   const [model, setModel] = useState("");
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
@@ -124,6 +126,7 @@ export function OnboardingWizard() {
   const [forceUnsetAnthropicApiKey, setForceUnsetAnthropicApiKey] =
     useState(false);
   const [unsetAnthropicLoading, setUnsetAnthropicLoading] = useState(false);
+  const [showMoreAdapters, setShowMoreAdapters] = useState(false);
 
   // Step 3
   const [taskTitle, setTaskTitle] = useState(
@@ -207,6 +210,7 @@ export function OnboardingWizard() {
     adapterType === "claude_local" ||
     adapterType === "codex_local" ||
     adapterType === "gemini_local" ||
+    adapterType === "hermes_local" ||
     adapterType === "opencode_local" ||
     adapterType === "pi_local" ||
     adapterType === "cursor";
@@ -216,6 +220,8 @@ export function OnboardingWizard() {
       ? "codex"
       : adapterType === "gemini_local"
         ? "gemini"
+      : adapterType === "hermes_local"
+        ? "hermes"
       : adapterType === "pi_local"
       ? "pi"
       : adapterType === "cursor"
@@ -283,7 +289,7 @@ export function OnboardingWizard() {
     setCompanyName("");
     setCompanyGoal("");
     setAgentName("CEO");
-    setAdapterType("openclaw_gateway");
+    setAdapterType("claude_local");
     setModel("");
     setCommand("");
     setArgs("");
@@ -755,18 +761,18 @@ export function OnboardingWizard() {
                     <div className="grid grid-cols-2 gap-2">
                       {[
                         {
-                          value: "openclaw_gateway" as const,
-                          label: "OpenClaw Gateway",
-                          icon: Bot,
-                          desc: "Recommended for hosted agents and BYOK",
+                          value: "claude_local" as const,
+                          label: "Claude Code",
+                          icon: Sparkles,
+                          desc: "Local Claude agent",
                           recommended: true
                         },
                         {
-                          value: "http" as const,
-                          label: "HTTP",
-                          icon: Terminal,
-                          desc: "Send tasks to your own remote endpoint",
-                          recommended: false
+                          value: "codex_local" as const,
+                          label: "Codex",
+                          icon: Code,
+                          desc: "Local Codex agent",
+                          recommended: true
                         }
                       ].map((opt) => (
                         <button
@@ -780,7 +786,12 @@ export function OnboardingWizard() {
                           onClick={() => {
                             const nextType = opt.value as AdapterType;
                             setAdapterType(nextType);
-                            setModel("");
+                            if (nextType === "codex_local" && !model) {
+                              setModel(DEFAULT_CODEX_LOCAL_MODEL);
+                            }
+                            if (nextType !== "codex_local") {
+                              setModel("");
+                            }
                           }}
                         >
                           {opt.recommended && (
@@ -796,12 +807,113 @@ export function OnboardingWizard() {
                         </button>
                       ))}
                     </div>
+
+                    <button
+                      className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => setShowMoreAdapters((v) => !v)}
+                    >
+                      <ChevronDown
+                        className={cn(
+                          "h-3 w-3 transition-transform",
+                          showMoreAdapters ? "rotate-0" : "-rotate-90"
+                        )}
+                      />
+                      More Agent Adapter Types
+                    </button>
+
+                    {showMoreAdapters && (
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        {[
+                          {
+                            value: "gemini_local" as const,
+                            label: "Gemini CLI",
+                            icon: Gem,
+                            desc: "Local Gemini agent"
+                          },
+                          {
+                            value: "opencode_local" as const,
+                            label: "OpenCode",
+                            icon: OpenCodeLogoIcon,
+                            desc: "Local multi-provider agent"
+                          },
+                          {
+                            value: "pi_local" as const,
+                            label: "Pi",
+                            icon: Terminal,
+                            desc: "Local Pi agent"
+                          },
+                          {
+                            value: "cursor" as const,
+                            label: "Cursor",
+                            icon: MousePointer2,
+                            desc: "Local Cursor agent"
+                          },
+                          {
+                            value: "hermes_local" as const,
+                            label: "Hermes Agent",
+                            icon: HermesIcon,
+                            desc: "Local multi-provider agent"
+                          },
+                          {
+                            value: "openclaw_gateway" as const,
+                            label: "OpenClaw Gateway",
+                            icon: Bot,
+                            desc: "Invoke OpenClaw via gateway protocol",
+                            comingSoon: true,
+                            disabledLabel: "Configure OpenClaw within the App"
+                          }
+                        ].map((opt) => (
+                          <button
+                            key={opt.value}
+                            disabled={!!opt.comingSoon}
+                            className={cn(
+                              "flex flex-col items-center gap-1.5 rounded-md border p-3 text-xs transition-colors relative",
+                              opt.comingSoon
+                                ? "border-border opacity-40 cursor-not-allowed"
+                                : adapterType === opt.value
+                                ? "border-foreground bg-accent"
+                                : "border-border hover:bg-accent/50"
+                            )}
+                            onClick={() => {
+                              if (opt.comingSoon) return;
+                              const nextType = opt.value as AdapterType;
+                              setAdapterType(nextType);
+                              if (nextType === "gemini_local" && !model) {
+                                setModel(DEFAULT_GEMINI_LOCAL_MODEL);
+                                return;
+                              }
+                              if (nextType === "cursor" && !model) {
+                                setModel(DEFAULT_CURSOR_LOCAL_MODEL);
+                                return;
+                              }
+                              if (nextType === "opencode_local") {
+                                if (!model.includes("/")) {
+                                  setModel("");
+                                }
+                                return;
+                              }
+                              setModel("");
+                            }}
+                          >
+                            <opt.icon className="h-4 w-4" />
+                            <span className="font-medium">{opt.label}</span>
+                            <span className="text-muted-foreground text-[10px]">
+                              {opt.comingSoon
+                                ? (opt as { disabledLabel?: string })
+                                    .disabledLabel ?? "Coming soon"
+                                : opt.desc}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Conditional adapter fields */}
                   {(adapterType === "claude_local" ||
                     adapterType === "codex_local" ||
                     adapterType === "gemini_local" ||
+                    adapterType === "hermes_local" ||
                     adapterType === "opencode_local" ||
                     adapterType === "pi_local" ||
                     adapterType === "cursor") && (

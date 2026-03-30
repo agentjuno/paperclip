@@ -103,14 +103,14 @@ export function PluginPage() {
       return <NotFoundPage scope="invalid_company_prefix" requestedPrefix={routeCompanyPrefix} />;
     }
     return (
-      <div className="paperclip-panel rounded-[24px] px-4 py-3 text-sm text-muted-foreground">
-        Select a company to view this page.
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">Select a company to view this page.</p>
       </div>
     );
   }
 
   if (!contributions) {
-    return <div className="paperclip-panel rounded-[24px] px-4 py-3 text-sm text-muted-foreground">Loading…</div>;
+    return <div className="text-sm text-muted-foreground">Loading…</div>;
   }
 
   if (!pluginId && pluginRoutePath) {
@@ -119,7 +119,7 @@ export function PluginPage() {
     );
     if (duplicateMatches.length > 1) {
       return (
-        <div className="paperclip-panel rounded-[24px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           Multiple plugins declare the route <code>{pluginRoutePath}</code>. Use the plugin-id route until the conflict is resolved.
         </div>
       );
@@ -137,31 +137,20 @@ export function PluginPage() {
 
   return (
     <div className="space-y-4">
-      <div className="paperclip-panel paperclip-panel-strong rounded-[28px] p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Company plugin page</div>
-            <h1 className="text-2xl font-semibold tracking-tight">{pageSlot.pluginDisplayName}</h1>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              Rendered from the plugin&apos;s page slot for the active company.
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" asChild className="rounded-xl">
-            <Link to={companyPrefix ? `/${companyPrefix}/command-center` : "/command-center"}>
-              <ArrowLeft className="mr-1 h-4 w-4" />
-              Back
-            </Link>
-          </Button>
-        </div>
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" asChild>
+          <Link to={companyPrefix ? `/${companyPrefix}/dashboard` : "/dashboard"}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Link>
+        </Button>
       </div>
-      <div className="paperclip-panel rounded-[28px] p-4 sm:p-5">
-        <PluginSlotMount
-          slot={pageSlot}
-          context={context}
-          className="min-h-[200px]"
-          missingBehavior="placeholder"
-        />
-      </div>
+      <PluginSlotMount
+        slot={pageSlot}
+        context={context}
+        className="min-h-[200px]"
+        missingBehavior="placeholder"
+      />
     </div>
   );
 }

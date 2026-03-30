@@ -1,6 +1,5 @@
 import type { ServerAdapterModule } from "./types.js";
 import { getAdapterSessionManagement } from "@paperclipai/adapter-utils";
-import { isHostedWebProductMode, isPublicWebAdapterType, getPublicWebAdapterError } from "./availability.js";
 import {
   execute as claudeExecute,
   listClaudeSkills,
@@ -71,6 +70,9 @@ import {
   execute as hermesExecute,
   testEnvironment as hermesTestEnvironment,
   sessionCodec as hermesSessionCodec,
+  listSkills as hermesListSkills,
+  syncSkills as hermesSyncSkills,
+  detectModel as detectModelFromHermes,
 } from "hermes-paperclip-adapter/server";
 import {
   agentConfigurationDoc as hermesAgentConfigurationDoc,
@@ -177,61 +179,34 @@ const hermesLocalAdapter: ServerAdapterModule = {
   execute: hermesExecute,
   testEnvironment: hermesTestEnvironment,
   sessionCodec: hermesSessionCodec,
+  listSkills: hermesListSkills,
+  syncSkills: hermesSyncSkills,
   models: hermesModels,
   supportsLocalAgentJwt: true,
   agentConfigurationDoc: hermesAgentConfigurationDoc,
+  detectModel: () => detectModelFromHermes(),
 };
 
-const allAdapters: ServerAdapterModule[] = [
-  claudeLocalAdapter,
-  codexLocalAdapter,
-  openCodeLocalAdapter,
-  piLocalAdapter,
-  cursorLocalAdapter,
-  geminiLocalAdapter,
-  openclawGatewayAdapter,
-  hermesLocalAdapter,
-  processAdapter,
-  httpAdapter,
-];
-
-const adaptersByType = new Map<string, ServerAdapterModule>(allAdapters.map((a) => [a.type, a]));
-
-function createDisabledAdapter(type: string): ServerAdapterModule {
-  const summary = getPublicWebAdapterError(type);
-
-  return {
-    type,
-    execute: async () => ({
-      exitCode: 1,
-      signal: null,
-      timedOut: false,
-      summary,
-    }),
-    testEnvironment: async () => ({
-      adapterType: type,
-      status: "fail",
-      checks: [
-        {
-          code: "adapter_disabled_public_web",
-          level: "error",
-          message: summary,
-        },
-      ],
-      testedAt: new Date().toISOString(),
-    }),
-    models: [],
-    agentConfigurationDoc: summary,
-  };
-}
+const adaptersByType = new Map<string, ServerAdapterModule>(
+  [
+    claudeLocalAdapter,
+    codexLocalAdapter,
+    openCodeLocalAdapter,
+    piLocalAdapter,
+    cursorLocalAdapter,
+    geminiLocalAdapter,
+    openclawGatewayAdapter,
+    hermesLocalAdapter,
+    processAdapter,
+    httpAdapter,
+  ].map((a) => [a.type, a]),
+);
 
 export function getServerAdapter(type: string): ServerAdapterModule {
   const adapter = adaptersByType.get(type);
   if (!adapter) {
-    return createDisabledAdapter(type);
-  }
-  if (isHostedWebProductMode() && !isPublicWebAdapterType(type)) {
-    return createDisabledAdapter(type);
+    // Fall back to process adapter for unknown types
+    return processAdapter;
   }
   return adapter;
 }
@@ -239,7 +214,6 @@ export function getServerAdapter(type: string): ServerAdapterModule {
 export async function listAdapterModels(type: string): Promise<{ id: string; label: string }[]> {
   const adapter = adaptersByType.get(type);
   if (!adapter) return [];
-  if (isHostedWebProductMode() && !isPublicWebAdapterType(type)) return [];
   if (adapter.listModels) {
     const discovered = await adapter.listModels();
     if (discovered.length > 0) return discovered;
@@ -248,11 +222,18 @@ export async function listAdapterModels(type: string): Promise<{ id: string; lab
 }
 
 export function listServerAdapters(): ServerAdapterModule[] {
-  if (!isHostedWebProductMode()) return allAdapters;
-  return allAdapters.filter((adapter) => isPublicWebAdapterType(adapter.type));
+  return Array.from(adaptersByType.values());
+}
+
+export async function detectAdapterModel(
+  type: string,
+): Promise<{ model: string; provider: string; source: string } | null> {
+  const adapter = adaptersByType.get(type);
+  if (!adapter?.detectModel) return null;
+  const detected = await adapter.detectModel();
+  return detected ? { model: detected.model, provider: detected.provider, source: detected.source } : null;
 }
 
 export function findServerAdapter(type: string): ServerAdapterModule | null {
-  if (isHostedWebProductMode() && !isPublicWebAdapterType(type)) return null;
   return adaptersByType.get(type) ?? null;
 }

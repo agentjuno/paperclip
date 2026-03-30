@@ -1,7 +1,5 @@
 export { companies } from "./companies.js";
 export { companyLogos } from "./company_logos.js";
-export { companyTokenLaunches } from "./company_token_launches.js";
-export { companyTokenLaunchRequests } from "./company_token_launch_requests.js";
 export { authUsers, authSessions, authAccounts, authVerifications } from "./auth.js";
 export { instanceSettings } from "./instance_settings.js";
 export { instanceUserRoles } from "./instance_user_roles.js";
@@ -9,7 +7,6 @@ export { agents } from "./agents.js";
 export { boardApiKeys } from "./board_api_keys.js";
 export { cliAuthChallenges } from "./cli_auth_challenges.js";
 export { companyMemberships } from "./company_memberships.js";
-export { userWalletLinks } from "./user_wallet_links.js";
 export { principalPermissionGrants } from "./principal_permission_grants.js";
 export { invites } from "./invites.js";
 export { joinRequests } from "./join_requests.js";

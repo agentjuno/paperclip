@@ -1,5 +1,4 @@
 const BOARD_ROUTE_ROOTS = new Set([
-  "command-center",
   "dashboard",
   "companies",
   "company",
@@ -11,7 +10,6 @@ const BOARD_ROUTE_ROOTS = new Set([
   "routines",
   "goals",
   "approvals",
-  "token-launch",
   "costs",
   "usage",
   "activity",

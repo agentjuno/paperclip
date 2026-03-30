@@ -8,7 +8,7 @@ import { accessApi } from "../api/access";
 import { assetsApi } from "../api/assets";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
-import { Check, Download, Upload } from "lucide-react";
+import { Settings, Check, Download, Upload } from "lucide-react";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
   Field,
@@ -221,60 +221,18 @@ export function CompanySettings() {
   }
 
   return (
-    <div className="paperclip-grid max-w-5xl space-y-6">
-      <section className="command-hero-shell command-fade-up px-5 py-5 sm:px-6 lg:px-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-3">
-            <div className="paperclip-kicker flex items-center gap-3">
-              <span>Governance / Company</span>
-              <span className="h-px w-8 bg-border/80" />
-              <span>{selectedCompany.status}</span>
-            </div>
-            <div className="flex items-start gap-4">
-              <CompanyPatternIcon
-                companyName={companyName || selectedCompany.name}
-                logoUrl={logoUrl || null}
-                brandColor={brandColor || null}
-                className="h-16 w-16 shrink-0 rounded-[18px]"
-              />
-              <div className="min-w-0 space-y-2">
-                <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-                  Company Settings
-                </h1>
-                <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                  Shape the company identity, hiring policy, onboarding prompt, and archive controls from one control surface.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[24rem]">
-            <div className="paperclip-panel px-4 py-3">
-              <div className="paperclip-kicker">Status</div>
-              <div className="mt-2 text-2xl font-semibold capitalize">{selectedCompany.status}</div>
-            </div>
-            <div className="paperclip-panel px-4 py-3">
-              <div className="paperclip-kicker">Hiring gate</div>
-              <div className="mt-2 text-2xl font-semibold">
-                {selectedCompany.requireBoardApprovalForNewAgents ? "Board" : "Open"}
-              </div>
-            </div>
-            <div className="paperclip-panel px-4 py-3">
-              <div className="paperclip-kicker">Brand</div>
-              <div className="mt-2 text-2xl font-semibold">
-                {selectedCompany.logoUrl ? "Logo set" : "No logo"}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+    <div className="max-w-2xl space-y-6">
+      <div className="flex items-center gap-2">
+        <Settings className="h-5 w-5 text-muted-foreground" />
+        <h1 className="text-lg font-semibold">Company Settings</h1>
+      </div>
 
       {/* General */}
-      <section className="space-y-4">
+      <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           General
         </div>
-        <div className="paperclip-panel space-y-3 px-4 py-4">
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <Field label="Company name" hint="The display name for your company.">
             <input
               className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
@@ -296,15 +254,15 @@ export function CompanySettings() {
             />
           </Field>
         </div>
-      </section>
+      </div>
 
       {/* Appearance */}
-      <section className="space-y-4">
+      <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Appearance
         </div>
-        <div className="paperclip-panel space-y-3 px-4 py-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
+          <div className="flex items-start gap-4">
             <div className="shrink-0">
               <CompanyPatternIcon
                 companyName={companyName || selectedCompany.name}
@@ -393,15 +351,15 @@ export function CompanySettings() {
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
       {/* Save button for General + Appearance */}
       {generalDirty && (
-      <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          onClick={handleSaveGeneral}
-          disabled={generalMutation.isPending || !companyName.trim()}
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={handleSaveGeneral}
+            disabled={generalMutation.isPending || !companyName.trim()}
           >
             {generalMutation.isPending ? "Saving..." : "Save changes"}
           </Button>
@@ -419,11 +377,11 @@ export function CompanySettings() {
       )}
 
       {/* Hiring */}
-      <section className="space-y-4">
+      <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Hiring
         </div>
-        <div className="paperclip-panel px-4 py-3">
+        <div className="rounded-md border border-border px-4 py-3">
           <ToggleField
             label="Require board approval for new hires"
             hint="New agent hires stay pending until approved by board."
@@ -431,14 +389,14 @@ export function CompanySettings() {
             onChange={(v) => settingsMutation.mutate(v)}
           />
         </div>
-      </section>
+      </div>
 
       {/* Invites */}
-      <section className="space-y-4">
+      <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Invites
         </div>
-        <div className="paperclip-panel space-y-3 px-4 py-4">
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground">
               Generate an OpenClaw agent invite snippet.
@@ -503,14 +461,14 @@ export function CompanySettings() {
             </div>
           )}
         </div>
-      </section>
+      </div>
 
       {/* Import / Export */}
-      <section className="space-y-4">
+      <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Company Packages
         </div>
-        <div className="paperclip-panel px-4 py-4">
+        <div className="rounded-md border border-border px-4 py-4">
           <p className="text-sm text-muted-foreground">
             Import and export have moved to dedicated pages accessible from the{" "}
             <a href="/org" className="underline hover:text-foreground">Org Chart</a> header.
@@ -530,14 +488,14 @@ export function CompanySettings() {
             </Button>
           </div>
         </div>
-      </section>
+      </div>
 
       {/* Danger Zone */}
-      <section className="space-y-4">
+      <div className="space-y-4">
         <div className="text-xs font-medium text-destructive uppercase tracking-wide">
           Danger Zone
         </div>
-        <div className="paperclip-panel space-y-3 border-destructive/40 bg-destructive/5 px-4 py-4">
+        <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
           <p className="text-sm text-muted-foreground">
             Archive this company to hide it from the sidebar. This persists in
             the database.
@@ -583,7 +541,7 @@ export function CompanySettings() {
             )}
           </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

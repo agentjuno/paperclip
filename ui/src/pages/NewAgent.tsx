@@ -21,10 +21,22 @@ import { AgentConfigForm, type CreateConfigValues } from "../components/AgentCon
 import { defaultCreateValues } from "../components/agent-config-defaults";
 import { getUIAdapter } from "../adapters";
 import { ReportsToPicker } from "../components/ReportsToPicker";
-import { publicWebAdapterTypes } from "../lib/adapter-availability";
+import {
+  DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
+  DEFAULT_CODEX_LOCAL_MODEL,
+} from "@paperclipai/adapter-codex-local";
+import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
+import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
 
 const SUPPORTED_ADVANCED_ADAPTER_TYPES = new Set<CreateConfigValues["adapterType"]>([
-  ...publicWebAdapterTypes,
+  "claude_local",
+  "codex_local",
+  "gemini_local",
+  "opencode_local",
+  "pi_local",
+  "cursor",
+  "hermes_local",
+  "openclaw_gateway",
 ]);
 
 function createValuesForAdapterType(
@@ -32,6 +44,17 @@ function createValuesForAdapterType(
 ): CreateConfigValues {
   const { adapterType: _discard, ...defaults } = defaultCreateValues;
   const nextValues: CreateConfigValues = { ...defaults, adapterType };
+  if (adapterType === "codex_local") {
+    nextValues.model = DEFAULT_CODEX_LOCAL_MODEL;
+    nextValues.dangerouslyBypassSandbox =
+      DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX;
+  } else if (adapterType === "gemini_local") {
+    nextValues.model = DEFAULT_GEMINI_LOCAL_MODEL;
+  } else if (adapterType === "cursor") {
+    nextValues.model = DEFAULT_CURSOR_LOCAL_MODEL;
+  } else if (adapterType === "opencode_local") {
+    nextValues.model = "";
+  }
   return nextValues;
 }
 

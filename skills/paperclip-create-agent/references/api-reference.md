@@ -9,7 +9,6 @@
 - `GET /api/companies/:companyId/skills`
 - `POST /api/companies/:companyId/skills/import`
 - `GET /api/agents/:agentId/configuration`
-- `GET /api/agents/:agentId/instructions-bundle`
 - `POST /api/agents/:agentId/skills/sync`
 - `POST /api/companies/:companyId/agent-hires`
 - `POST /api/companies/:companyId/agents`
@@ -81,26 +80,6 @@ Response:
 If company setting disables required approval, `approval` is `null` and the agent is created as `idle`.
 
 `desiredSkills` accepts company skill ids, canonical keys, or a unique slug. The server resolves and stores canonical company skill keys.
-
-For managed-bundle local adapters, if no explicit instructions bundle is supplied the server materializes a managed bundle automatically. If `adapterConfig.promptTemplate` is provided, it becomes `AGENTS.md` and the default support files are still added.
-
-## Post-hire QA
-
-Use these endpoints right after the response returns `agent.id`:
-
-```sh
-curl -sS "$PAPERCLIP_API_URL/api/agents/<agent-id>/configuration" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
-
-curl -sS "$PAPERCLIP_API_URL/api/agents/<agent-id>/instructions-bundle" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
-```
-
-Check:
-
-- adapter config includes `instructionsBundleMode`, `instructionsRootPath`, `instructionsEntryFile`, and `instructionsFilePath`
-- instructions bundle contains `AGENTS.md`, `HEARTBEAT.md`, `SOUL.md`, and `TOOLS.md`
-- reporting line, workspace, heartbeat policy, and desired skills match the requested hire
 
 ## Approval Lifecycle
 

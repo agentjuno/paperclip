@@ -1,5 +1,5 @@
 import { Router, type Request } from "express";
-import { generateKeyPairSync } from "node:crypto";
+import { generateKeyPairSync, randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Db } from "@paperclipai/db";
 import { agents as agentsTable, companies, heartbeatRuns } from "@paperclipai/db";
@@ -44,12 +44,12 @@ import {
 } from "../services/index.js";
 import { conflict, forbidden, notFound, unprocessable } from "../errors.js";
 import { assertBoard, assertCompanyAccess, assertInstanceAdmin, getActorInfo } from "./authz.js";
-import { findServerAdapter, listAdapterModels } from "../adapters/index.js";
-import { assertPublicWebAdapterType } from "../adapters/availability.js";
+import { findServerAdapter, listAdapterModels, detectAdapterModel } from "../adapters/index.js";
 import { redactEventPayload } from "../redaction.js";
 import { redactCurrentUserValue } from "../log-redaction.js";
 import { renderOrgChartSvg, renderOrgChartPng, type OrgNode, type OrgChartStyle, ORG_CHART_STYLES } from "./org-chart-svg.js";
 import { instanceSettingsService } from "../services/instance-settings.js";
+import { runClaudeLogin } from "@paperclipai/adapter-claude-local/server";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
   DEFAULT_CODEX_LOCAL_MODEL,
@@ -468,12 +468,9 @@ export function agentRoutes(db: Db) {
     const promptTemplate = typeof adapterConfig.promptTemplate === "string"
       ? adapterConfig.promptTemplate
       : "";
-    const files = await loadDefaultAgentInstructionsBundle(
-      resolveDefaultAgentInstructionsBundleRole(agent.role),
-    );
-    if (promptTemplate.trim().length > 0) {
-      files["AGENTS.md"] = promptTemplate;
-    }
+    const files = promptTemplate.trim().length === 0
+      ? await loadDefaultAgentInstructionsBundle(resolveDefaultAgentInstructionsBundleRole(agent.role))
+      : { "AGENTS.md": promptTemplate };
     const materialized = await instructions.materializeManagedBundle(
       agent,
       files,
@@ -670,9 +667,17 @@ export function agentRoutes(db: Db) {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const type = req.params.type as string;
-    assertPublicWebAdapterType(type);
     const models = await listAdapterModels(type);
     res.json(models);
+  });
+
+  router.get("/companies/:companyId/adapters/:type/detect-model", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const type = req.params.type as string;
+
+    const detected = await detectAdapterModel(type);
+    res.json(detected);
   });
 
   router.post(
@@ -682,7 +687,6 @@ export function agentRoutes(db: Db) {
       const companyId = req.params.companyId as string;
       const type = req.params.type as string;
       await assertCanReadConfigurations(req, companyId);
-      assertPublicWebAdapterType(type);
 
       const adapter = findServerAdapter(type);
       if (!adapter) {
@@ -1167,7 +1171,6 @@ export function agentRoutes(db: Db) {
       sourceIssueIds: _sourceIssueIds,
       ...hireInput
     } = req.body;
-    assertPublicWebAdapterType(hireInput.adapterType);
     const requestedAdapterConfig = applyCreateDefaultsByAdapterType(
       hireInput.adapterType,
       ((hireInput.adapterConfig ?? {}) as Record<string, unknown>),
@@ -1328,7 +1331,6 @@ export function agentRoutes(db: Db) {
       desiredSkills: requestedDesiredSkills,
       ...createInput
     } = req.body;
-    assertPublicWebAdapterType(createInput.adapterType);
     const requestedAdapterConfig = applyCreateDefaultsByAdapterType(
       createInput.adapterType,
       ((createInput.adapterConfig ?? {}) as Record<string, unknown>),
@@ -1732,7 +1734,6 @@ export function agentRoutes(db: Db) {
       Object.prototype.hasOwnProperty.call(patchData, "adapterType") ||
       Object.prototype.hasOwnProperty.call(patchData, "adapterConfig");
     if (touchesAdapterConfiguration) {
-      assertPublicWebAdapterType(requestedAdapterType);
       const existingAdapterConfig = asRecord(existing.adapterConfig) ?? {};
       const changingAdapterType =
         typeof patchData.adapterType === "string" && patchData.adapterType !== existing.adapterType;
@@ -2041,10 +2042,26 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
-    res.status(410).json({
-      error:
-        "Local adapter login is disabled in the hosted web product. Use remote adapters and company-scoped BYOK secrets instead.",
+    if (agent.adapterType !== "claude_local") {
+      res.status(400).json({ error: "Login is only supported for claude_local agents" });
+      return;
+    }
+
+    const config = asRecord(agent.adapterConfig) ?? {};
+    const { config: runtimeConfig } = await secretsSvc.resolveAdapterConfigForRuntime(agent.companyId, config);
+    const result = await runClaudeLogin({
+      runId: `claude-login-${randomUUID()}`,
+      agent: {
+        id: agent.id,
+        companyId: agent.companyId,
+        name: agent.name,
+        adapterType: agent.adapterType,
+        adapterConfig: agent.adapterConfig,
+      },
+      config: runtimeConfig,
     });
+
+    res.json(result);
   });
 
   router.get("/companies/:companyId/heartbeat-runs", async (req, res) => {

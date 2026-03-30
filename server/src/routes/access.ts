@@ -47,7 +47,6 @@ import {
   logActivity,
   notifyHireApproved
 } from "../services/index.js";
-import { assertPublicWebAdapterType, isHostedWebProductMode } from "../adapters/availability.js";
 import { assertCompanyAccess } from "./authz.js";
 import {
   claimBoardOwnership,
@@ -1575,13 +1574,6 @@ export function accessRoutes(
   }
 
   router.get("/board-claim/:token", async (req, res) => {
-    if (isHostedWebProductMode()) {
-      res.status(410).json({
-        error:
-          "Board claim is disabled in the hosted ZHC deployment. Sign in through the main ZHC site instead.",
-      });
-      return;
-    }
     const token = (req.params.token as string).trim();
     const code =
       typeof req.query.code === "string" ? req.query.code.trim() : undefined;
@@ -1593,13 +1585,6 @@ export function accessRoutes(
   });
 
   router.post("/board-claim/:token/claim", async (req, res) => {
-    if (isHostedWebProductMode()) {
-      res.status(410).json({
-        error:
-          "Board claim is disabled in the hosted ZHC deployment. Sign in through the main ZHC site instead.",
-      });
-      return;
-    }
     const token = (req.params.token as string).trim();
     const code =
       typeof req.body?.code === "string" ? req.body.code.trim() : undefined;
@@ -2133,41 +2118,36 @@ export function accessRoutes(
         : null;
 
       if (invite.inviteType === "bootstrap_ceo") {
-        if (!isHostedWebProductMode()) {
-          if (inviteAlreadyAccepted) throw notFound("Invite not found");
-          if (req.body.requestType !== "human") {
-            throw badRequest("Bootstrap invite requires human request type");
-          }
-          if (
-            req.actor.type !== "board" ||
-            (!req.actor.userId && !isLocalImplicit(req))
-          ) {
-            throw unauthorized(
-              "Authenticated user required for bootstrap acceptance"
-            );
-          }
-          const userId = req.actor.userId ?? "local-board";
-          const existingAdmin = await access.isInstanceAdmin(userId);
-          if (!existingAdmin) {
-            await access.promoteInstanceAdmin(userId);
-          }
-          const updatedInvite = await db
-            .update(invites)
-            .set({ acceptedAt: new Date(), updatedAt: new Date() })
-            .where(eq(invites.id, invite.id))
-            .returning()
-            .then((rows) => rows[0] ?? invite);
-          res.status(202).json({
-            inviteId: updatedInvite.id,
-            inviteType: updatedInvite.inviteType,
-            bootstrapAccepted: true,
-            userId
-          });
-          return;
+        if (inviteAlreadyAccepted) throw notFound("Invite not found");
+        if (req.body.requestType !== "human") {
+          throw badRequest("Bootstrap invite requires human request type");
         }
-        throw conflict(
-          "Bootstrap invites are disabled in the hosted ZHC deployment. Sign in through the main ZHC site instead.",
-        );
+        if (
+          req.actor.type !== "board" ||
+          (!req.actor.userId && !isLocalImplicit(req))
+        ) {
+          throw unauthorized(
+            "Authenticated user required for bootstrap acceptance"
+          );
+        }
+        const userId = req.actor.userId ?? "local-board";
+        const existingAdmin = await access.isInstanceAdmin(userId);
+        if (!existingAdmin) {
+          await access.promoteInstanceAdmin(userId);
+        }
+        const updatedInvite = await db
+          .update(invites)
+          .set({ acceptedAt: new Date(), updatedAt: new Date() })
+          .where(eq(invites.id, invite.id))
+          .returning()
+          .then((rows) => rows[0] ?? invite);
+        res.status(202).json({
+          inviteId: updatedInvite.id,
+          inviteType: updatedInvite.inviteType,
+          bootstrapAccepted: true,
+          userId
+        });
+        return;
       }
 
       const requestType = req.body.requestType as "human" | "agent";
@@ -2201,16 +2181,7 @@ export function accessRoutes(
         }
       }
 
-      const adapterType =
-        requestType === "agent"
-          ? ((req.body.adapterType ?? existingJoinRequestForInvite?.adapterType) ?? null)
-          : null;
-      if (requestType === "agent") {
-        if (!adapterType) {
-          throw badRequest("adapterType is required for agent join requests");
-        }
-        assertPublicWebAdapterType(adapterType);
-      }
+      const adapterType = req.body.adapterType ?? null;
       if (
         inviteAlreadyAccepted &&
         !canReplayOpenClawGatewayInviteAccept({
