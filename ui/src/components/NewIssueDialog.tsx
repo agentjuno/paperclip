@@ -83,7 +83,7 @@ type StagedIssueFile = {
   title?: string | null;
 };
 
-const ISSUE_OVERRIDE_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "opencode_local"]);
+const ISSUE_OVERRIDE_ADAPTER_TYPES = new Set(["claude_local", "claude_platform", "codex_local", "opencode_local"]);
 const STAGED_FILE_ACCEPT = "image/*,application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,.md,.markdown";
 
 const ISSUE_THINKING_EFFORT_OPTIONS = {
@@ -128,13 +128,13 @@ function buildAssigneeAdapterOverrides(input: {
       adapterConfig.modelReasoningEffort = input.thinkingEffortOverride;
     } else if (adapterType === "opencode_local") {
       adapterConfig.variant = input.thinkingEffortOverride;
-    } else if (adapterType === "claude_local") {
+    } else if (adapterType === "claude_local" || adapterType === "claude_platform") {
       adapterConfig.effort = input.thinkingEffortOverride;
     } else if (adapterType === "opencode_local") {
       adapterConfig.variant = input.thinkingEffortOverride;
     }
   }
-  if (adapterType === "claude_local" && input.chrome) {
+  if ((adapterType === "claude_local" || adapterType === "claude_platform") && input.chrome) {
     adapterConfig.chrome = true;
   }
 
@@ -771,7 +771,7 @@ export function NewIssueDialog() {
     (workspace) => workspace.id === selectedExecutionWorkspaceId,
   );
   const assigneeOptionsTitle =
-    assigneeAdapterType === "claude_local"
+    assigneeAdapterType === "claude_local" || assigneeAdapterType === "claude_platform"
       ? "Claude options"
       : assigneeAdapterType === "codex_local"
         ? "Codex options"
@@ -1202,7 +1202,7 @@ export function NewIssueDialog() {
                     ))}
                   </div>
                 </div>
-                {assigneeAdapterType === "claude_local" && (
+                {(assigneeAdapterType === "claude_local" || assigneeAdapterType === "claude_platform") && (
                   <div className="flex items-center justify-between rounded-md border border-border px-2 py-1.5">
                     <div className="text-xs text-muted-foreground">Enable Chrome (--chrome)</div>
                     <button

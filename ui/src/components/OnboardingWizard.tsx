@@ -61,6 +61,7 @@ import { HermesIcon } from "./HermesIcon";
 type Step = 1 | 2 | 3 | 4;
 type AdapterType =
   | "claude_local"
+  | "claude_platform"
   | "codex_local"
   | "gemini_local"
   | "hermes_local"
@@ -208,6 +209,7 @@ export function OnboardingWizard() {
   });
   const isLocalAdapter =
     adapterType === "claude_local" ||
+    adapterType === "claude_platform" ||
     adapterType === "codex_local" ||
     adapterType === "gemini_local" ||
     adapterType === "hermes_local" ||
@@ -331,7 +333,7 @@ export function OnboardingWizard() {
       args,
       url,
       dangerouslySkipPermissions:
-        adapterType === "claude_local" || adapterType === "opencode_local",
+        adapterType === "claude_local" || adapterType === "claude_platform" || adapterType === "opencode_local",
       dangerouslyBypassSandbox:
         adapterType === "codex_local"
           ? DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX
@@ -768,6 +770,13 @@ export function OnboardingWizard() {
                           recommended: true
                         },
                         {
+                          value: "claude_platform" as const,
+                          label: "Claude (platform)",
+                          icon: Sparkles,
+                          desc: "Platform-managed billing",
+                          recommended: false
+                        },
+                        {
                           value: "codex_local" as const,
                           label: "Codex",
                           icon: Code,
@@ -911,6 +920,7 @@ export function OnboardingWizard() {
 
                   {/* Conditional adapter fields */}
                   {(adapterType === "claude_local" ||
+                    adapterType === "claude_platform" ||
                     adapterType === "codex_local" ||
                     adapterType === "gemini_local" ||
                     adapterType === "hermes_local" ||

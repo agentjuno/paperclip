@@ -6,6 +6,7 @@ const QUOTA_PROVIDER_TIMEOUT_MS = 20_000;
 function providerSlugForAdapterType(type: string): string {
   switch (type) {
     case "claude_local":
+    case "claude_platform":
       return "anthropic";
     case "codex_local":
       return "openai";

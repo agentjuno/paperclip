@@ -25,6 +25,7 @@ import { HermesIcon } from "./HermesIcon";
 
 type AdvancedAdapterType =
   | "claude_local"
+  | "claude_platform"
   | "codex_local"
   | "gemini_local"
   | "opencode_local"
@@ -46,6 +47,12 @@ const ADVANCED_ADAPTER_OPTIONS: Array<{
     icon: Sparkles,
     desc: "Local Claude agent",
     recommended: true,
+  },
+  {
+    value: "claude_platform",
+    label: "Claude (platform)",
+    icon: Sparkles,
+    desc: "Platform-managed billing",
   },
   {
     value: "codex_local",

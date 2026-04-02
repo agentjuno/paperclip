@@ -78,6 +78,12 @@ import {
   agentConfigurationDoc as hermesAgentConfigurationDoc,
   models as hermesModels,
 } from "hermes-paperclip-adapter";
+import {
+  execute as claudePlatformExecute,
+  testEnvironment as claudePlatformTestEnvironment,
+  getQuotaWindows as claudePlatformGetQuotaWindows,
+  agentConfigurationDoc as claudePlatformAgentConfigurationDoc,
+} from "./claude-platform.js";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
 
@@ -187,6 +193,20 @@ const hermesLocalAdapter: ServerAdapterModule = {
   detectModel: () => detectModelFromHermes(),
 };
 
+const claudePlatformAdapter: ServerAdapterModule = {
+  type: "claude_platform",
+  execute: claudePlatformExecute,
+  testEnvironment: claudePlatformTestEnvironment,
+  listSkills: listClaudeSkills,
+  syncSkills: syncClaudeSkills,
+  sessionCodec: claudeSessionCodec,
+  sessionManagement: getAdapterSessionManagement("claude_platform") ?? getAdapterSessionManagement("claude_local") ?? undefined,
+  models: claudeModels,
+  supportsLocalAgentJwt: true,
+  agentConfigurationDoc: claudePlatformAgentConfigurationDoc,
+  getQuotaWindows: claudePlatformGetQuotaWindows,
+};
+
 const adaptersByType = new Map<string, ServerAdapterModule>(
   [
     claudeLocalAdapter,
@@ -197,6 +217,7 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
     geminiLocalAdapter,
     openclawGatewayAdapter,
     hermesLocalAdapter,
+    claudePlatformAdapter,
     processAdapter,
     httpAdapter,
   ].map((a) => [a.type, a]),

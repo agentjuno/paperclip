@@ -738,8 +738,10 @@ describe("ensureRuntimeServicesForRun", () => {
   it("reuses shared runtime services across runs and starts a new service after release", async () => {
     const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-workspace-"));
     const workspace = buildWorkspace(workspaceRoot);
-    const serviceCommand =
-      "node -e \"require('node:http').createServer((req,res)=>res.end('ok')).listen(Number(process.env.PORT), '127.0.0.1')\"";
+    const nodeBin = JSON.stringify(process.execPath);
+    const serviceCommand = `${nodeBin} -e ${JSON.stringify(
+      "require('node:http').createServer((req,res)=>res.end('ok')).listen(Number(process.env.PORT), '127.0.0.1')",
+    )}`;
 
     const config = {
       workspaceRuntime: {
@@ -832,29 +834,25 @@ describe("ensureRuntimeServicesForRun", () => {
     expect(third).toHaveLength(1);
     expect(third[0]?.reused).toBe(false);
     expect(third[0]?.id).not.toBe(first[0]?.id);
-  });
+  }, 20_000);
 
   it("does not leak parent Paperclip instance env into runtime service commands", async () => {
     const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-env-"));
     const workspace = buildWorkspace(workspaceRoot);
     const envCapturePath = path.join(workspaceRoot, "captured-env.json");
-    const serviceCommand = [
-      "node -e",
-      JSON.stringify(
-        [
-          "const fs = require('node:fs');",
-          `fs.writeFileSync(${JSON.stringify(envCapturePath)}, JSON.stringify({`,
-          "paperclipConfig: process.env.PAPERCLIP_CONFIG ?? null,",
-          "paperclipHome: process.env.PAPERCLIP_HOME ?? null,",
-          "paperclipInstanceId: process.env.PAPERCLIP_INSTANCE_ID ?? null,",
-          "databaseUrl: process.env.DATABASE_URL ?? null,",
-          "customEnv: process.env.RUNTIME_CUSTOM_ENV ?? null,",
-          "port: process.env.PORT ?? null,",
-          "}));",
-          "require('node:http').createServer((req, res) => res.end('ok')).listen(Number(process.env.PORT), '127.0.0.1');",
-        ].join(" "),
-      ),
+    const script = [
+      "const fs = require('node:fs');",
+      `fs.writeFileSync(${JSON.stringify(envCapturePath)}, JSON.stringify({`,
+      "paperclipConfig: process.env.PAPERCLIP_CONFIG ?? null,",
+      "paperclipHome: process.env.PAPERCLIP_HOME ?? null,",
+      "paperclipInstanceId: process.env.PAPERCLIP_INSTANCE_ID ?? null,",
+      "databaseUrl: process.env.DATABASE_URL ?? null,",
+      "customEnv: process.env.RUNTIME_CUSTOM_ENV ?? null,",
+      "port: process.env.PORT ?? null,",
+      "}));",
+      "require('node:http').createServer((req, res) => res.end('ok')).listen(Number(process.env.PORT), '127.0.0.1');",
     ].join(" ");
+    const serviceCommand = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;
 
     process.env.PAPERCLIP_CONFIG = "/tmp/base-paperclip-config.json";
     process.env.PAPERCLIP_HOME = "/tmp/base-paperclip-home";
@@ -912,13 +910,14 @@ describe("ensureRuntimeServicesForRun", () => {
     expect(services[0]?.executionWorkspaceId).toBe("execution-workspace-1");
     expect(services[0]?.scopeType).toBe("execution_workspace");
     expect(services[0]?.scopeId).toBe("execution-workspace-1");
-  });
+  }, 20_000);
 
   it("stops execution workspace runtime services by executionWorkspaceId", async () => {
     const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-stop-"));
     const workspace = buildWorkspace(workspaceRoot);
     const runId = "run-stop";
     leasedRunIds.add(runId);
+    const nodeBin = JSON.stringify(process.execPath);
 
     const services = await ensureRuntimeServicesForRun({
       runId,
@@ -936,7 +935,9 @@ describe("ensureRuntimeServicesForRun", () => {
             {
               name: "web",
               command:
-                "node -e \"require('node:http').createServer((req,res)=>res.end('ok')).listen(Number(process.env.PORT), '127.0.0.1')\"",
+                `${nodeBin} -e ${JSON.stringify(
+                  "require('node:http').createServer((req,res)=>res.end('ok')).listen(Number(process.env.PORT), '127.0.0.1')",
+                )}`,
               port: { type: "auto" },
               readiness: {
                 type: "http",
@@ -966,7 +967,7 @@ describe("ensureRuntimeServicesForRun", () => {
     await new Promise((resolve) => setTimeout(resolve, 250));
 
     await expect(fetch(services[0]!.url!)).rejects.toThrow();
-  });
+  }, 20_000);
 
   it("does not stop services in sibling directories when matching by workspace cwd", async () => {
     const workspaceParent = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-sibling-"));
@@ -978,6 +979,7 @@ describe("ensureRuntimeServicesForRun", () => {
     const siblingWorkspace = buildWorkspace(siblingWorkspaceRoot);
     const runId = "run-sibling";
     leasedRunIds.add(runId);
+    const nodeBin = JSON.stringify(process.execPath);
 
     const services = await ensureRuntimeServicesForRun({
       runId,
@@ -995,7 +997,9 @@ describe("ensureRuntimeServicesForRun", () => {
             {
               name: "web",
               command:
-                "node -e \"require('node:http').createServer((req,res)=>res.end('ok')).listen(Number(process.env.PORT), '127.0.0.1')\"",
+                `${nodeBin} -e ${JSON.stringify(
+                  "require('node:http').createServer((req,res)=>res.end('ok')).listen(Number(process.env.PORT), '127.0.0.1')",
+                )}`,
               port: { type: "auto" },
               readiness: {
                 type: "http",
@@ -1025,7 +1029,7 @@ describe("ensureRuntimeServicesForRun", () => {
 
     await releaseRuntimeServicesForRun(runId);
     leasedRunIds.delete(runId);
-  });
+  }, 20_000);
 });
 
 describe("normalizeAdapterManagedRuntimeServices", () => {

@@ -532,7 +532,7 @@ export function agentRoutes(db: Db) {
   }
 
   function shouldMaterializeRuntimeSkillsForAdapter(adapterType: string) {
-    return adapterType !== "claude_local";
+    return adapterType !== "claude_local" && adapterType !== "claude_platform";
   }
 
   async function buildRuntimeSkillConfig(

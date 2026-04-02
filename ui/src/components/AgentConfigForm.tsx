@@ -311,6 +311,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     : overlay.adapterType ?? props.agent.adapterType;
   const isLocal =
     adapterType === "claude_local" ||
+    adapterType === "claude_platform" ||
     adapterType === "codex_local" ||
     adapterType === "gemini_local" ||
     adapterType === "hermes_local" ||
@@ -815,7 +816,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                   </div>
                 </>
               )}
-              {adapterType === "claude_local" && (
+              {(adapterType === "claude_local" || adapterType === "claude_platform") && (
                 <ClaudeLocalAdvancedFields {...adapterFieldProps} />
               )}
 
@@ -1022,7 +1023,7 @@ function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmentTestRe
 
 /* ---- Internal sub-components ---- */
 
-const ENABLED_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local", "pi_local", "cursor", "hermes_local"]);
+const ENABLED_ADAPTER_TYPES = new Set(["claude_local", "claude_platform", "codex_local", "gemini_local", "opencode_local", "pi_local", "cursor", "hermes_local"]);
 
 /** Display list includes all real adapter types plus UI-only coming-soon entries. */
 const ADAPTER_DISPLAY_LIST: { value: string; label: string; comingSoon: boolean }[] = [
