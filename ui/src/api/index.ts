@@ -17,3 +17,4 @@ export { instanceSettingsApi } from "./instanceSettings";
 export { sidebarBadgesApi } from "./sidebarBadges";
 export { companySkillsApi } from "./companySkills";
 export { tokenLaunchApi } from "./tokenLaunch";
+export { stripeProjectsApi } from "./stripe-projects";

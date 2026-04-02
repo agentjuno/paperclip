@@ -24,10 +24,11 @@ import { projectRouteRef, cn } from "../lib/utils";
 import { Tabs } from "@/components/ui/tabs";
 import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { PluginSlotMount, PluginSlotOutlet, usePluginSlots } from "@/plugins/slots";
+import { InfrastructureTab } from "../components/InfrastructureTab";
 
 /* ── Top-level tab types ── */
 
-type ProjectBaseTab = "overview" | "list" | "configuration" | "budget";
+type ProjectBaseTab = "overview" | "list" | "configuration" | "budget" | "infrastructure";
 type ProjectPluginTab = `plugin:${string}`;
 type ProjectTab = ProjectBaseTab | ProjectPluginTab;
 
@@ -43,6 +44,7 @@ function resolveProjectTab(pathname: string, projectId: string): ProjectTab | nu
   if (tab === "overview") return "overview";
   if (tab === "configuration") return "configuration";
   if (tab === "budget") return "budget";
+  if (tab === "infrastructure") return "infrastructure";
   if (tab === "issues") return "list";
   return null;
 }
@@ -345,6 +347,10 @@ export function ProjectDetail() {
       navigate(`/projects/${canonicalProjectRef}/budget`, { replace: true });
       return;
     }
+    if (activeTab === "infrastructure") {
+      navigate(`/projects/${canonicalProjectRef}/infrastructure`, { replace: true });
+      return;
+    }
     if (activeTab === "list") {
       if (filter) {
         navigate(`/projects/${canonicalProjectRef}/issues/${filter}`, { replace: true });
@@ -470,6 +476,9 @@ export function ProjectDetail() {
     if (cachedTab === "budget") {
       return <Navigate to={`/projects/${canonicalProjectRef}/budget`} replace />;
     }
+    if (cachedTab === "infrastructure") {
+      return <Navigate to={`/projects/${canonicalProjectRef}/infrastructure`} replace />;
+    }
     if (isProjectPluginTab(cachedTab)) {
       return <Navigate to={`/projects/${canonicalProjectRef}?tab=${encodeURIComponent(cachedTab)}`} replace />;
     }
@@ -498,6 +507,8 @@ export function ProjectDetail() {
       navigate(`/projects/${canonicalProjectRef}/budget`);
     } else if (tab === "configuration") {
       navigate(`/projects/${canonicalProjectRef}/configuration`);
+    } else if (tab === "infrastructure") {
+      navigate(`/projects/${canonicalProjectRef}/infrastructure`);
     } else {
       navigate(`/projects/${canonicalProjectRef}/issues`);
     }
@@ -578,6 +589,7 @@ export function ProjectDetail() {
                 { value: "list", label: "Issues" },
                 { value: "overview", label: "Overview" },
                 { value: "configuration", label: "Configuration" },
+                { value: "infrastructure", label: "Infrastructure" },
                 { value: "budget", label: "Budget" },
                 ...pluginTabItems.map((item) => ({
                   value: item.value,
@@ -618,6 +630,10 @@ export function ProjectDetail() {
                 archivePending={archiveProject.isPending}
               />
             </div>
+          )}
+
+          {activeTab === "infrastructure" && project?.id && resolvedCompanyId && (
+            <InfrastructureTab companyId={resolvedCompanyId} projectId={project.id} />
           )}
 
           {activeTab === "budget" && resolvedCompanyId ? (

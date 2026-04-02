@@ -129,6 +129,14 @@ export const queryKeys = {
   liveRuns: (companyId: string) => ["live-runs", companyId] as const,
   runIssues: (runId: string) => ["run-issues", runId] as const,
   org: (companyId: string) => ["org", companyId] as const,
+  stripeProjects: {
+    catalog: (companyId: string, category?: string) =>
+      ["stripe-projects", "catalog", companyId, category ?? "__all__"] as const,
+    services: (companyId: string, projectId: string) =>
+      ["stripe-projects", "services", companyId, projectId] as const,
+    status: (companyId: string, projectId: string) =>
+      ["stripe-projects", "status", companyId, projectId] as const,
+  },
   skills: {
     available: ["skills", "available"] as const,
   },
