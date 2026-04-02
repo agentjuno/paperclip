@@ -14,11 +14,13 @@ export function healthRoutes(
     deploymentExposure: DeploymentExposure;
     authReady: boolean;
     companyDeletionEnabled: boolean;
+    zhcBridgeEnabled?: boolean;
   } = {
     deploymentMode: "local_trusted",
     deploymentExposure: "private",
     authReady: true,
     companyDeletionEnabled: true,
+    zhcBridgeEnabled: false,
   },
 ) {
   const router = Router();
@@ -31,7 +33,10 @@ export function healthRoutes(
 
     let bootstrapStatus: "ready" | "bootstrap_pending" = "ready";
     let bootstrapInviteActive = false;
-    if (opts.deploymentMode === "authenticated") {
+    // ZHC bridge mode: skip bootstrap check — the bridge IS the bootstrap
+    if (opts.zhcBridgeEnabled) {
+      // no-op: bootstrapStatus stays "ready"
+    } else if (opts.deploymentMode === "authenticated") {
       const roleCount = await db
         .select({ count: count() })
         .from(instanceUserRoles)

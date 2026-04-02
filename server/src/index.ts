@@ -528,6 +528,7 @@ export async function startServer(): Promise<StartedServer> {
     companyDeletionEnabled: config.companyDeletionEnabled,
     betterAuthHandler,
     resolveSession,
+    zhcSessionSecret: process.env.ZHC_GATING_SESSION_SECRET || undefined,
   });
   const server = createServer(app as unknown as Parameters<typeof createServer>[0]);
   

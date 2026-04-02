@@ -21,6 +21,12 @@ interface ActorMiddlewareOptions {
 export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHandler {
   const boardAuth = boardAuthService(db);
   return async (req, _res, next) => {
+    // If an upstream middleware (e.g. ZHC auth bridge) already resolved the actor, keep it.
+    if (req.actor?.type === "board" && req.actor.userId) {
+      next();
+      return;
+    }
+
     req.actor =
       opts.deploymentMode === "local_trusted"
         ? { type: "board", userId: "local-board", isInstanceAdmin: true, source: "local_implicit" }

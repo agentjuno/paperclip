@@ -9,6 +9,7 @@ import { httpLogger, errorHandler } from "./middleware/index.js";
 import { actorMiddleware } from "./middleware/auth.js";
 import { boardMutationGuard } from "./middleware/board-mutation-guard.js";
 import { privateHostnameGuard, resolvePrivateHostnameAllowSet } from "./middleware/private-hostname-guard.js";
+import { zhcAuthBridge } from "./middleware/zhc-auth-bridge.js";
 import { healthRoutes } from "./routes/health.js";
 import { companyRoutes } from "./routes/companies.js";
 import { companySkillRoutes } from "./routes/company-skills.js";
@@ -74,6 +75,7 @@ export async function createApp(
     localPluginDir?: string;
     betterAuthHandler?: express.RequestHandler;
     resolveSession?: (req: ExpressRequest) => Promise<BetterAuthSessionResult | null>;
+    zhcSessionSecret?: string;
   },
 ) {
   const app = express();
@@ -99,6 +101,13 @@ export async function createApp(
       bindHost: opts.bindHost,
     }),
   );
+  // ZHC wallet-session auth bridge (runs before actorMiddleware)
+  if (opts.zhcSessionSecret) {
+    app.use(
+      zhcAuthBridge(db, { sessionSecret: opts.zhcSessionSecret }),
+    );
+  }
+
   app.use(
     actorMiddleware(db, {
       deploymentMode: opts.deploymentMode,
@@ -137,6 +146,7 @@ export async function createApp(
       deploymentExposure: opts.deploymentExposure,
       authReady: opts.authReady,
       companyDeletionEnabled: opts.companyDeletionEnabled,
+      zhcBridgeEnabled: Boolean(opts.zhcSessionSecret),
     }),
   );
   api.use("/companies", companyRoutes(db, opts.storageService));
