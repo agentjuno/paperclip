@@ -261,10 +261,18 @@ export function tokenLaunchService(db: Db) {
       .where(eq(companyTokenLaunches.companyId, companyId))
       .then((rows) => rows[0] ?? null);
     if (existing) return existing;
-    return db
+
+    // Upsert: attempt insert, ignore unique-constraint conflict (race-safe)
+    await db
       .insert(companyTokenLaunches)
       .values({ companyId })
-      .returning()
+      .onConflictDoNothing({ target: companyTokenLaunches.companyId });
+
+    // Re-read — guaranteed to exist now
+    return db
+      .select()
+      .from(companyTokenLaunches)
+      .where(eq(companyTokenLaunches.companyId, companyId))
       .then((rows) => rows[0]!);
   }
 
@@ -539,10 +547,28 @@ export function tokenLaunchService(db: Db) {
       throw conflict("This token launch request has not been approved yet.");
     }
     if (request.deployStatus !== "not_started") {
+      if (request.deployStatus === "deploying") {
+        throw conflict("This token launch request is already being processed.");
+      }
       if (request.deployStatus === "unknown") {
         throw conflict("This token launch request has an unknown live deploy outcome and is locked.");
       }
       throw conflict("This token launch request can no longer be confirmed.");
+    }
+
+    // Atomically claim the request to prevent concurrent deploys
+    const claimed = await db
+      .update(companyTokenLaunchRequests)
+      .set({ deployStatus: "deploying", updatedAt: new Date() })
+      .where(
+        and(
+          eq(companyTokenLaunchRequests.id, requestId),
+          eq(companyTokenLaunchRequests.deployStatus, "not_started"),
+        ),
+      )
+      .returning();
+    if (claimed.length === 0) {
+      throw conflict("This token launch request is already being processed or has been confirmed.");
     }
 
     try {
@@ -586,23 +612,22 @@ export function tokenLaunchService(db: Db) {
       return getLaunch(companyId, userId);
     } catch (err) {
       if (err instanceof BankrApiError) {
+        // Reset to not_started so the user can retry
         await db
           .update(companyTokenLaunchRequests)
           .set({
-            deployStatus: "failed",
+            deployStatus: "not_started",
             deploymentError: err.message,
             deploymentErrorDetails: {
               bankrStatus: err.status,
               bankrDetails: err.details,
             },
-            confirmedByUserId: userId,
-            confirmedAt: new Date(),
             updatedAt: new Date(),
           })
           .where(eq(companyTokenLaunchRequests.id, request.id));
         throw unprocessable(err.message, {
           requestId: request.id,
-          deployStatus: "failed",
+          deployStatus: "not_started",
           bankrStatus: err.status,
           bankrDetails: err.details,
         });

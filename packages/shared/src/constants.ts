@@ -357,6 +357,7 @@ export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 
 export const TOKEN_LAUNCH_DEPLOY_STATUSES = [
   "not_started",
+  "deploying",
   "failed",
   "unknown",
   "deployed",
