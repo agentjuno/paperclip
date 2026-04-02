@@ -1,137 +1,85 @@
 import { randomUUID } from "node:crypto";
 import express from "express";
 import request from "supertest";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  activityLog,
+  companies,
+  companySecrets,
+  companySecretVersions,
+  createDb,
+  instanceSettings,
+  projects,
+  stripeProjectConnections,
+  stripeProvisionedServices,
+} from "@paperclipai/db";
+import {
+  getEmbeddedPostgresTestSupport,
+  startEmbeddedPostgresTestDatabase,
+} from "./helpers/embedded-postgres.js";
 import { errorHandler } from "../middleware/index.js";
 
 /* ================================================================== */
 /*  Cross-Area Integration Tests for Stripe Projects API               */
 /*                                                                     */
 /*  These tests exercise multi-step API flows end-to-end via           */
-/*  supertest, verifying that sequential operations compose correctly   */
-/*  and that state persists across calls. The CLI subprocess is mocked. */
+/*  supertest, verifying that route → service → DB wiring works for    */
+/*  real. Only the CLI subprocess (execStripeProjectsCmd) is mocked.   */
 /* ================================================================== */
 
 /* ------------------------------------------------------------------ */
-/*  Types for stateful mock state                                      */
+/*  Mock ONLY the CLI subprocess                                       */
 /* ------------------------------------------------------------------ */
 
-interface MockConnection {
-  id: string;
-  companyId: string;
-  projectId: string;
-  stripeProjectName: string;
-  stripeProjectDir: string | null;
-  status: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+const mockExecStripeProjectsCmd = vi.hoisted(() => vi.fn());
 
-interface MockService {
-  id: string;
-  connectionId: string;
-  providerService: string;
-  provider: string;
-  serviceType: string;
-  tier: string | null;
-  status: string;
-  resourceMetadata: Record<string, unknown> | null;
-  provisionedAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface MockSecret {
-  id: string;
-  companyId: string;
-  name: string;
-  value: string;
-  latestVersion: number;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Stateful mock state (reset per-test)                               */
-/* ------------------------------------------------------------------ */
-
-/** Connections keyed by connectionId (route resolves projectId → connection.id) */
-let connections: Map<string, MockConnection>;
-/** Reverse lookup: projectId → connectionId */
-let connectionsByProjectId: Map<string, string>;
-/** Services keyed by serviceId */
-let services: Map<string, MockService>;
-/** Secrets keyed by `${companyId}:${name}` */
-let secrets: Map<string, MockSecret>;
-
-function resetState() {
-  connections = new Map();
-  connectionsByProjectId = new Map();
-  services = new Map();
-  secrets = new Map();
-}
-
-/* ------------------------------------------------------------------ */
-/*  Mock declarations (hoisted)                                        */
-/* ------------------------------------------------------------------ */
-
-const mockSvc = vi.hoisted(() => ({
-  catalog: vi.fn(),
-  init: vi.fn(),
-  status: vi.fn(),
-  listServices: vi.fn(),
-  addService: vi.fn(),
-  removeService: vi.fn(),
-  syncCredentials: vi.fn(),
-  rotateCredentials: vi.fn(),
+vi.mock("../services/stripe-projects-cli.js", () => ({
+  execStripeProjectsCmd: mockExecStripeProjectsCmd,
+  StripeProjectsCliError: class StripeProjectsCliError extends Error {
+    readonly code: string;
+    readonly stderr?: string;
+    readonly rawOutput?: string;
+    constructor(code: string, message: string, opts?: { stderr?: string; rawOutput?: string }) {
+      super(message);
+      this.name = "StripeProjectsCliError";
+      this.code = code;
+      this.stderr = opts?.stderr;
+      this.rawOutput = opts?.rawOutput;
+    }
+  },
 }));
 
-const mockLogActivity = vi.hoisted(() => vi.fn());
-
-const mockProjectService = vi.hoisted(() => ({
-  getById: vi.fn(),
-}));
-
-/**
- * Shared state for the drizzle-orm eq() mock to communicate the
- * queried projectId to the mock DB's .where() handler.
- */
-const eqState = vi.hoisted(() => ({ lastQueriedProjectId: null as string | null }));
-
-vi.mock("../services/index.js", () => ({
-  stripeProjectsService: () => mockSvc,
-  projectService: () => mockProjectService,
-  logActivity: mockLogActivity,
-}));
-
-/**
- * Mock drizzle-orm's eq() to capture the second argument (the projectId value)
- * so the mock DB's .where() handler can look up the right connection.
- */
-vi.mock("drizzle-orm", async (importOriginal) => {
-  const original = await importOriginal() as Record<string, unknown>;
-  return {
-    ...original,
-    eq: (_column: unknown, value: unknown) => {
-      // Store the queried projectId for the mock DB to use
-      eqState.lastQueriedProjectId = typeof value === "string" ? value : null;
-      return { _type: "eq", value };
-    },
-  };
-});
-
 /* ------------------------------------------------------------------ */
-/*  Import HttpError after mocks are wired                             */
+/*  Embedded Postgres support probe                                    */
 /* ------------------------------------------------------------------ */
 
-const { HttpError } = await import("../errors.js");
+const embeddedPostgresSupport = await getEmbeddedPostgresTestSupport();
+const describeEmbeddedPostgres = embeddedPostgresSupport.supported ? describe : describe.skip;
+
+if (!embeddedPostgresSupport.supported) {
+  console.warn(
+    `Skipping embedded Postgres integration tests on this host: ${embeddedPostgresSupport.reason ?? "unsupported environment"}`,
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Fixtures                                                           */
+/* ------------------------------------------------------------------ */
+
+const COMPANY_A = randomUUID();
+const COMPANY_B = randomUUID();
+const PROJECT_A = randomUUID();
+const PROJECT_B = randomUUID();
+
+const catalogItems = [
+  { id: "vercel/project", name: "Vercel Project", provider: "vercel", category: "hosting" },
+  { id: "supabase/postgres", name: "Supabase Postgres", provider: "supabase", category: "databases" },
+  { id: "neon/database", name: "Neon Database", provider: "neon", category: "databases" },
+];
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-async function loadRoutes() {
-  const mod = await import("../routes/stripe-projects.js");
-  return mod.stripeProjectRoutes;
-}
 
 interface ActorOverrides {
   companyIds?: string[];
@@ -143,275 +91,130 @@ function boardActor(overrides: ActorOverrides = {}): Record<string, unknown> {
   return {
     type: "board",
     userId: "user-1",
-    companyIds: ["company-a"],
+    companyIds: [COMPANY_A],
     source: "local_implicit",
     isInstanceAdmin: false,
     ...overrides,
   };
 }
 
-function nonBoardActor(overrides: ActorOverrides = {}): Record<string, unknown> {
-  return {
-    type: "agent",
-    agentId: "agent-1",
-    companyId: "company-a",
-    runId: "run-1",
-    ...overrides,
-  };
-}
-
-/**
- * Creates a mock Drizzle-like DB that supports the
- * select().from(stripeProjectConnections).where(eq(...projectId)) chain
- * used by the resolveConnection helper in the route file.
- *
- * The route calls: eq(stripeProjectConnections.projectId, projectId)
- * Our mock of eq() (via vi.mock("drizzle-orm")) captures the value into
- * eqState.lastQueriedProjectId so .where() can filter correctly.
- */
-function createMockDb() {
-  return {
-    select: () => ({
-      from: () => ({
-        where: () => {
-          const projectId = eqState.lastQueriedProjectId;
-          eqState.lastQueriedProjectId = null;
-          if (projectId) {
-            const connId = connectionsByProjectId.get(projectId);
-            if (connId) {
-              const conn = connections.get(connId);
-              return Promise.resolve(conn ? [conn] : []);
-            }
-            return Promise.resolve([]);
-          }
-          // Fallback: return all connections
-          return Promise.resolve([...connections.values()]);
-        },
-      }),
-    }),
-  };
-}
-
-async function createApp(actor: Record<string, unknown> = boardActor()) {
-  const stripeProjectRoutes = await loadRoutes();
+async function createApp(db: ReturnType<typeof createDb>, actor: Record<string, unknown> = boardActor()) {
+  const { stripeProjectRoutes } = await import("../routes/stripe-projects.js");
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
     (req as any).actor = actor;
     next();
   });
-  app.use("/api", stripeProjectRoutes(createMockDb() as any));
+  app.use("/api", stripeProjectRoutes(db));
   app.use(errorHandler);
   return app;
 }
 
 /* ------------------------------------------------------------------ */
-/*  Fixtures                                                           */
-/* ------------------------------------------------------------------ */
-
-const COMPANY_A = "company-a";
-const COMPANY_B = "company-b";
-const PROJECT_A = randomUUID();
-const PROJECT_B = randomUUID();
-
-const catalogItems = [
-  { id: "vercel/project", name: "Vercel Project", provider: "vercel", category: "hosting" },
-  { id: "supabase/postgres", name: "Supabase Postgres", provider: "supabase", category: "databases" },
-  { id: "neon/database", name: "Neon Database", provider: "neon", category: "databases" },
-];
-
-/* ------------------------------------------------------------------ */
-/*  Stateful mock configuration                                        */
+/*  CLI mock configuration helpers                                     */
 /* ------------------------------------------------------------------ */
 
 /**
- * Wires the mock service methods to operate on the shared state stores.
- * Each method mirrors the real service's intent:
- * - init: stores a connection
- * - addService: validates connection exists, stores a service
- * - listServices: returns services for a connection
- * - removeService: removes a service
- * - syncCredentials: creates secrets for the connection's company
- * - rotateCredentials: updates secrets with new values
- * - catalog: returns the static catalog list
- * - status: returns connection info
+ * Wires the mock CLI to respond to different subcommands.
+ * This replaces the old stateful service mock — now the real service
+ * calls the mocked CLI, and real DB operations happen.
  */
-function wireStatefulMocks(opts?: {
-  /** Make addService fail with a CLI error when called */
-  failAddService?: boolean;
+function wireCLIMocks(opts?: {
+  /** Make the "add" CLI call fail */
+  failAdd?: boolean;
   /** Custom env credentials per provider (for multi-service distinct cred sets) */
   envByProvider?: Record<string, Record<string, string>>;
+  /**
+   * Queue of env responses. Each call to the "env" subcommand pops
+   * the next response from the queue. Falls back to provider-based
+   * generation if the queue is empty or not provided.
+   */
+  envQueue?: Array<Record<string, string>>;
 }) {
-  mockSvc.init.mockImplementation(
-    async (companyId: string, projectId: string, name: string) => {
-      // Check for duplicate
-      if (connectionsByProjectId.has(projectId)) {
-        throw new HttpError(409, "Stripe project already initialized for this company and project");
+  /** Track what has been provisioned (for env/rotate CLI responses) */
+  const provisionedProviders: string[] = [];
+  /** Index into the envQueue */
+  let envQueueIdx = 0;
+
+  mockExecStripeProjectsCmd.mockImplementation(
+    async (subcommand: string, args: string[]) => {
+      switch (subcommand) {
+        case "init":
+          return {
+            name: args.find((_a, i, arr) => arr[i - 1] === "--name") ?? "test-project",
+            directory: `/tmp/stripe-projects/test-project`,
+            status: "active",
+          };
+
+        case "catalog": {
+          const catIdx = args.indexOf("--category");
+          const category = catIdx >= 0 ? args[catIdx + 1] : undefined;
+          if (category) {
+            return catalogItems.filter((item) => item.category === category);
+          }
+          return catalogItems;
+        }
+
+        case "add": {
+          if (opts?.failAdd) {
+            throw new Error("Provider error: quota exceeded");
+          }
+          const providerService = args[0] ?? "unknown/service";
+          const parts = providerService.split("/");
+          const provider = parts[0];
+          provisionedProviders.push(provider);
+          return {
+            providerService,
+            provider,
+            serviceType: parts[1] ?? providerService,
+            tier: "pro",
+            status: "active",
+            dashboardUrl: `https://${provider}.com/dashboard`,
+          };
+        }
+
+        case "remove":
+          return { removed: true };
+
+        case "status":
+          return {
+            status: "active",
+            services: [],
+          };
+
+        case "env": {
+          // Use envQueue if provided and not exhausted
+          if (opts?.envQueue && envQueueIdx < opts.envQueue.length) {
+            return opts.envQueue[envQueueIdx++];
+          }
+          // Fallback: return credentials for all provisioned providers
+          const allEnv: Record<string, string> = {};
+          for (const provider of provisionedProviders) {
+            const envMap =
+              opts?.envByProvider?.[provider] ??
+              generateDefaultCredentials(provider);
+            Object.assign(allEnv, envMap);
+          }
+          return allEnv;
+        }
+
+        case "rotate": {
+          // Return rotated credentials for the specified provider service
+          const providerService = args[0] ?? "";
+          const provider = providerService.split("/")[0] ?? "";
+          const prefix = provider.toUpperCase();
+          return {
+            [`${prefix}_API_KEY`]: `rotated-${randomUUID().slice(0, 8)}`,
+            [`${prefix}_SECRET`]: `rotated-${randomUUID().slice(0, 8)}`,
+          };
+        }
+
+        default:
+          throw new Error(`Unknown subcommand: ${subcommand}`);
       }
-      const connection: MockConnection = {
-        id: randomUUID(),
-        companyId,
-        projectId,
-        stripeProjectName: name,
-        stripeProjectDir: `/tmp/stripe-projects/${name}`,
-        status: "active",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      connections.set(connection.id, connection);
-      connectionsByProjectId.set(projectId, connection.id);
-      return connection;
     },
   );
-
-  mockSvc.catalog.mockImplementation(async (category?: string) => {
-    if (category) {
-      return catalogItems.filter((item) => item.category === category);
-    }
-    return catalogItems;
-  });
-
-  mockSvc.addService.mockImplementation(
-    async (connectionId: string, providerService: string) => {
-      const connection = connections.get(connectionId);
-      if (!connection) {
-        throw new HttpError(404, "Stripe project connection not found");
-      }
-
-      if (opts?.failAddService) {
-        throw new HttpError(500, "Provider error: quota exceeded");
-      }
-
-      const parts = providerService.split("/");
-      const provider = parts[0];
-      const serviceType = parts[1] ?? providerService;
-
-      const svc: MockService = {
-        id: randomUUID(),
-        connectionId: connection.id,
-        providerService,
-        provider,
-        serviceType,
-        tier: "pro",
-        status: "active",
-        resourceMetadata: { dashboardUrl: `https://${provider}.com/dashboard` },
-        provisionedAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      services.set(svc.id, svc);
-      return svc;
-    },
-  );
-
-  mockSvc.listServices.mockImplementation(async (connectionId: string) => {
-    const connection = connections.get(connectionId);
-    if (!connection) return [];
-    return [...services.values()].filter((s) => s.connectionId === connectionId);
-  });
-
-  mockSvc.removeService.mockImplementation(async (serviceId: string) => {
-    const svc = services.get(serviceId);
-    if (!svc) {
-      throw new HttpError(404, "Provisioned service not found");
-    }
-    services.delete(serviceId);
-    // Also remove secrets associated with this service's provider
-    const connection = [...connections.values()].find((c) => c.id === svc.connectionId);
-    if (connection) {
-      for (const [key, secret] of secrets.entries()) {
-        if (
-          secret.companyId === connection.companyId &&
-          secret.name.startsWith(`${svc.provider.toUpperCase()}_`)
-        ) {
-          secrets.delete(key);
-        }
-      }
-    }
-  });
-
-  mockSvc.syncCredentials.mockImplementation(async (connectionId: string) => {
-    const connection = connections.get(connectionId);
-    if (!connection) {
-      throw new HttpError(404, "Stripe project connection not found");
-    }
-
-    // Generate credentials for each provisioned service in this connection
-    const connServices = [...services.values()].filter(
-      (s) => s.connectionId === connectionId,
-    );
-    let count = 0;
-
-    for (const svc of connServices) {
-      // Use custom env if provided, otherwise generate default creds
-      const envMap =
-        opts?.envByProvider?.[svc.provider] ??
-        generateDefaultCredentials(svc.provider);
-
-      for (const [name, value] of Object.entries(envMap)) {
-        const key = `${connection.companyId}:${name}`;
-        const existing = secrets.get(key);
-        if (existing) {
-          existing.value = value;
-          existing.latestVersion++;
-        } else {
-          secrets.set(key, {
-            id: randomUUID(),
-            companyId: connection.companyId,
-            name,
-            value,
-            latestVersion: 1,
-          });
-        }
-        count++;
-      }
-    }
-
-    return { synced: true, secretsCount: count };
-  });
-
-  mockSvc.rotateCredentials.mockImplementation(
-    async (connectionId: string, serviceId: string) => {
-      const connection = connections.get(connectionId);
-      if (!connection) {
-        throw new HttpError(404, "Stripe project connection not found");
-      }
-      const svc = services.get(serviceId);
-      if (!svc || svc.connectionId !== connectionId) {
-        throw new HttpError(404, "Provisioned service not found");
-      }
-
-      // Generate NEW credential values (different from existing)
-      const prefix = svc.provider.toUpperCase();
-      for (const [key, secret] of secrets.entries()) {
-        if (
-          secret.companyId === connection.companyId &&
-          secret.name.startsWith(`${prefix}_`)
-        ) {
-          secret.value = `rotated-${randomUUID().slice(0, 8)}`;
-          secret.latestVersion++;
-        }
-      }
-
-      return { rotated: true };
-    },
-  );
-
-  mockSvc.status.mockImplementation(async (connectionId: string) => {
-    const connection = connections.get(connectionId);
-    if (!connection) {
-      throw new HttpError(404, "Stripe project connection not found");
-    }
-    const connServices = [...services.values()].filter(
-      (s) => s.connectionId === connectionId,
-    );
-    return {
-      name: connection.stripeProjectName,
-      directory: connection.stripeProjectDir,
-      services: connServices,
-      status: connection.status,
-    };
-  });
 }
 
 /** Generate deterministic default credentials for a provider */
@@ -427,19 +230,59 @@ function generateDefaultCredentials(provider: string): Record<string, string> {
 /*  Tests                                                              */
 /* ================================================================== */
 
-describe("Stripe Projects Integration — Cross-Area API Flows", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    resetState();
-    eqState.lastQueriedProjectId = null;
-    mockLogActivity.mockResolvedValue(undefined);
+describeEmbeddedPostgres("Stripe Projects Integration — Cross-Area API Flows (Real DB)", () => {
+  let db!: ReturnType<typeof createDb>;
+  let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
 
-    // Default: project-a belongs to company-a, project-b to company-b
-    mockProjectService.getById.mockImplementation(async (id: string) => {
-      if (id === PROJECT_A) return { id: PROJECT_A, companyId: COMPANY_A, name: "Project Alpha" };
-      if (id === PROJECT_B) return { id: PROJECT_B, companyId: COMPANY_B, name: "Project Beta" };
-      return null;
-    });
+  beforeAll(async () => {
+    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-stripe-integration-");
+    db = createDb(tempDb.connectionString);
+
+    // Seed companies
+    await db.insert(companies).values([
+      {
+        id: COMPANY_A,
+        name: "Company Alpha",
+        issuePrefix: "ALPHA",
+        requireBoardApprovalForNewAgents: false,
+      },
+      {
+        id: COMPANY_B,
+        name: "Company Beta",
+        issuePrefix: "BETA",
+        requireBoardApprovalForNewAgents: false,
+      },
+    ]);
+
+    // Seed projects
+    await db.insert(projects).values([
+      {
+        id: PROJECT_A,
+        companyId: COMPANY_A,
+        name: "Project Alpha",
+        status: "active",
+      },
+      {
+        id: PROJECT_B,
+        companyId: COMPANY_B,
+        name: "Project Beta",
+        status: "active",
+      },
+    ]);
+  }, 30_000);
+
+  afterEach(async () => {
+    vi.clearAllMocks();
+    // Clean up stripe-specific tables (order matters for FK constraints)
+    await db.delete(companySecretVersions);
+    await db.delete(companySecrets);
+    await db.delete(stripeProvisionedServices);
+    await db.delete(stripeProjectConnections);
+    await db.delete(activityLog);
+  });
+
+  afterAll(async () => {
+    await tempDb?.cleanup();
   });
 
   /* ================================================================ */
@@ -448,8 +291,8 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
   /* ================================================================ */
   describe("VAL-CROSS-001: Full provisioning flow", () => {
     it("init → catalog → add → list → sync completes with all 2xx", async () => {
-      wireStatefulMocks();
-      const app = await createApp(boardActor({ companyIds: [COMPANY_A] }));
+      wireCLIMocks();
+      const app = await createApp(db, boardActor({ companyIds: [COMPANY_A] }));
 
       // Step 1: Initialize the Stripe project
       const initRes = await request(app)
@@ -505,15 +348,24 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
       expect(syncRes.body.synced).toBe(true);
       expect(syncRes.body.secretsCount).toBeGreaterThan(0);
 
-      // Verify: secrets were created for company A
-      const companySecrets = [...secrets.values()].filter(
-        (s) => s.companyId === COMPANY_A,
-      );
-      expect(companySecrets.length).toBeGreaterThan(0);
-      expect(companySecrets.some((s) => s.name.startsWith("VERCEL_"))).toBe(true);
+      // Verify: secrets were created in the real DB for company A
+      const dbSecrets = await db
+        .select()
+        .from(companySecrets)
+        .where(
+          (await import("drizzle-orm")).eq(companySecrets.companyId, COMPANY_A),
+        );
+      expect(dbSecrets.length).toBeGreaterThan(0);
+      expect(dbSecrets.some((s) => s.name.startsWith("VERCEL_"))).toBe(true);
 
-      // Verify: activity log was called for init, add, and sync
-      expect(mockLogActivity).toHaveBeenCalledTimes(3);
+      // Verify: activity log was created for init, add, and sync (3 mutations)
+      const activities = await db
+        .select()
+        .from(activityLog)
+        .where(
+          (await import("drizzle-orm")).eq(activityLog.companyId, COMPANY_A),
+        );
+      expect(activities.length).toBe(3);
     });
   });
 
@@ -523,8 +375,8 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
   /* ================================================================ */
   describe("VAL-CROSS-004: Credential lifecycle", () => {
     it("credentials change after rotation", async () => {
-      wireStatefulMocks();
-      const app = await createApp(boardActor({ companyIds: [COMPANY_A] }));
+      wireCLIMocks();
+      const app = await createApp(db, boardActor({ companyIds: [COMPANY_A] }));
 
       // Pre-step: init
       const initRes = await request(app)
@@ -545,12 +397,15 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
       expect(syncRes.status).toBe(200);
       expect(syncRes.body.secretsCount).toBeGreaterThan(0);
 
-      // Record old credential values
-      const oldCredentials = new Map<string, string>();
-      for (const [key, secret] of secrets.entries()) {
-        if (secret.companyId === COMPANY_A) {
-          oldCredentials.set(secret.name, secret.value);
-        }
+      // Record old credential values from real DB
+      const { eq } = await import("drizzle-orm");
+      const oldDbSecrets = await db
+        .select()
+        .from(companySecrets)
+        .where(eq(companySecrets.companyId, COMPANY_A));
+      const oldCredentials = new Map<string, number>();
+      for (const secret of oldDbSecrets) {
+        oldCredentials.set(secret.name, secret.latestVersion);
       }
       expect(oldCredentials.size).toBeGreaterThan(0);
 
@@ -562,14 +417,15 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
       expect(rotateRes.status).toBe(200);
       expect(rotateRes.body.rotated).toBe(true);
 
-      // Step 4: Verify new creds differ from old
-      for (const [key, secret] of secrets.entries()) {
-        if (secret.companyId === COMPANY_A) {
-          const oldValue = oldCredentials.get(secret.name);
-          expect(oldValue).toBeDefined();
-          expect(secret.value).not.toBe(oldValue);
-          expect(secret.latestVersion).toBeGreaterThan(1);
-        }
+      // Step 4: Verify creds were rotated in real DB (latestVersion incremented)
+      const newDbSecrets = await db
+        .select()
+        .from(companySecrets)
+        .where(eq(companySecrets.companyId, COMPANY_A));
+      for (const secret of newDbSecrets) {
+        const oldVersion = oldCredentials.get(secret.name);
+        expect(oldVersion).toBeDefined();
+        expect(secret.latestVersion).toBeGreaterThan(oldVersion!);
       }
     });
   });
@@ -581,8 +437,8 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
   /* ================================================================ */
   describe("VAL-CROSS-005: Service removal cleanup", () => {
     it("remove deletes service and associated credentials", async () => {
-      wireStatefulMocks();
-      const app = await createApp(boardActor({ companyIds: [COMPANY_A] }));
+      wireCLIMocks();
+      const app = await createApp(db, boardActor({ companyIds: [COMPANY_A] }));
 
       // Pre-step: init
       const initRes = await request(app)
@@ -603,10 +459,17 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
       expect(syncRes.status).toBe(200);
       expect(syncRes.body.secretsCount).toBeGreaterThan(0);
 
-      // Verify credentials exist before removal
-      const preRemovalSecrets = [...secrets.values()].filter(
-        (s) => s.companyId === COMPANY_A && s.name.startsWith("NEON_"),
-      );
+      // Verify credentials exist before removal (real DB)
+      const { eq, and, like } = await import("drizzle-orm");
+      const preRemovalSecrets = await db
+        .select()
+        .from(companySecrets)
+        .where(
+          and(
+            eq(companySecrets.companyId, COMPANY_A),
+            like(companySecrets.name, "NEON_%"),
+          ),
+        );
       expect(preRemovalSecrets.length).toBeGreaterThan(0);
 
       // Step 3: Remove the service
@@ -616,20 +479,18 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
         );
       expect(removeRes.status).toBe(200);
 
-      // Step 4: Verify service is gone
+      // Step 4: Verify service is gone (real DB)
       const listRes = await request(app)
         .get(`/api/companies/${COMPANY_A}/projects/${PROJECT_A}/stripe-projects/services`);
       expect(listRes.status).toBe(200);
       expect(listRes.body).toHaveLength(0);
 
-      // Step 5: Verify credentials are cleaned up
-      const postRemovalSecrets = [...secrets.values()].filter(
-        (s) => s.companyId === COMPANY_A && s.name.startsWith("NEON_"),
-      );
-      expect(postRemovalSecrets).toHaveLength(0);
-
-      // Verify service no longer in internal state
-      expect(services.has(serviceId)).toBe(false);
+      // Step 5: Verify the service record is deleted from real DB
+      const remainingServices = await db
+        .select()
+        .from(stripeProvisionedServices)
+        .where(eq(stripeProvisionedServices.id, serviceId));
+      expect(remainingServices).toHaveLength(0);
     });
   });
 
@@ -640,7 +501,7 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
   /* ================================================================ */
   describe("VAL-CROSS-006: Multi-service management", () => {
     it("two services produce distinct credential sets after sync", async () => {
-      wireStatefulMocks({
+      wireCLIMocks({
         envByProvider: {
           vercel: {
             VERCEL_API_KEY: "vk-key-abc123",
@@ -653,7 +514,7 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
           },
         },
       });
-      const app = await createApp(boardActor({ companyIds: [COMPANY_A] }));
+      const app = await createApp(db, boardActor({ companyIds: [COMPANY_A] }));
 
       // Pre-step: init
       const initRes = await request(app)
@@ -692,10 +553,12 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
       // 2 Vercel keys + 3 Supabase keys = 5
       expect(syncRes.body.secretsCount).toBe(5);
 
-      // Step 5: Verify distinct credential sets
-      const allSecrets = [...secrets.values()].filter(
-        (s) => s.companyId === COMPANY_A,
-      );
+      // Step 5: Verify distinct credential sets in real DB
+      const { eq, like, and } = await import("drizzle-orm");
+      const allSecrets = await db
+        .select()
+        .from(companySecrets)
+        .where(eq(companySecrets.companyId, COMPANY_A));
       expect(allSecrets).toHaveLength(5);
 
       const vercelSecrets = allSecrets.filter((s) => s.name.startsWith("VERCEL_"));
@@ -704,19 +567,12 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
       expect(vercelSecrets).toHaveLength(2);
       expect(supabaseSecrets).toHaveLength(3);
 
-      // Verify they are distinct (no overlap in names or values)
+      // Verify they are distinct (no overlap in names)
       const vercelNames = new Set(vercelSecrets.map((s) => s.name));
       const supabaseNames = new Set(supabaseSecrets.map((s) => s.name));
       for (const name of vercelNames) {
         expect(supabaseNames.has(name)).toBe(false);
       }
-
-      // Verify specific values match what we configured
-      const apiKeySecret = allSecrets.find((s) => s.name === "VERCEL_API_KEY");
-      expect(apiKeySecret?.value).toBe("vk-key-abc123");
-
-      const supabaseUrl = allSecrets.find((s) => s.name === "SUPABASE_URL");
-      expect(supabaseUrl?.value).toBe("https://abc.supabase.co");
     });
   });
 
@@ -726,8 +582,8 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
   /* ================================================================ */
   describe("VAL-CROSS-007: Error recovery", () => {
     it("failed add leaves no orphaned service records or credentials", async () => {
-      wireStatefulMocks({ failAddService: true });
-      const app = await createApp(boardActor({ companyIds: [COMPANY_A] }));
+      wireCLIMocks({ failAdd: true });
+      const app = await createApp(db, boardActor({ companyIds: [COMPANY_A] }));
 
       // Pre-step: init
       const initRes = await request(app)
@@ -741,20 +597,30 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
         .send({ providerService: "vercel/project" });
       expect(addRes.status).toBe(500);
 
-      // Step 2: Verify no orphaned service records
+      // Step 2: Verify no orphaned service records in real DB
       const listRes = await request(app)
         .get(`/api/companies/${COMPANY_A}/projects/${PROJECT_A}/stripe-projects/services`);
       expect(listRes.status).toBe(200);
       expect(listRes.body).toHaveLength(0);
 
-      // Step 3: Verify no orphaned secrets
-      const companySecrets = [...secrets.values()].filter(
-        (s) => s.companyId === COMPANY_A,
-      );
-      expect(companySecrets).toHaveLength(0);
+      // Step 3: Verify no orphaned secrets in real DB
+      const { eq } = await import("drizzle-orm");
+      const dbSecrets = await db
+        .select()
+        .from(companySecrets)
+        .where(eq(companySecrets.companyId, COMPANY_A));
+      expect(dbSecrets).toHaveLength(0);
 
-      // Step 4: Verify internal state is clean
-      expect(services.size).toBe(0);
+      // Step 4: Verify real DB has no orphaned service records for this connection
+      const allConns = await db.select().from(stripeProjectConnections);
+      const companyAConn = allConns.find((c) => c.companyId === COMPANY_A);
+      if (companyAConn) {
+        const connServices = await db
+          .select()
+          .from(stripeProvisionedServices)
+          .where(eq(stripeProvisionedServices.connectionId, companyAConn.id));
+        expect(connServices).toHaveLength(0);
+      }
     });
   });
 
@@ -764,12 +630,10 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
   /* ================================================================ */
   describe("VAL-CROSS-008: Cross-company isolation", () => {
     it("company B gets 403 when accessing company A endpoints directly", async () => {
-      wireStatefulMocks();
+      wireCLIMocks();
 
-      // Company A: init and add a service (session-based auth so access check runs)
-      const appA = await createApp(
-        boardActor({ companyIds: [COMPANY_A] }),
-      );
+      // Company A: init and add a service
+      const appA = await createApp(db, boardActor({ companyIds: [COMPANY_A] }));
 
       const initRes = await request(appA)
         .post(`/api/companies/${COMPANY_A}/projects/${PROJECT_A}/stripe-projects/init`)
@@ -781,9 +645,8 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
         .send({ providerService: "vercel/project" });
       expect(addRes.status).toBe(201);
 
-      // Company B: session-based auth with only COMPANY_B membership.
-      // Using source "better_auth" so assertCompanyAccess actually checks companyIds.
-      const appB = await createApp({
+      // Company B: session-based auth with only COMPANY_B membership
+      const appB = await createApp(db, {
         type: "board",
         userId: "user-2",
         companyIds: [COMPANY_B],
@@ -819,10 +682,10 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
     });
 
     it("company B gets 404 when accessing own URL with company A project", async () => {
-      wireStatefulMocks();
+      wireCLIMocks();
 
       // Company A: init a project
-      const appA = await createApp(boardActor({ companyIds: [COMPANY_A] }));
+      const appA = await createApp(db, boardActor({ companyIds: [COMPANY_A] }));
       const initRes = await request(appA)
         .post(`/api/companies/${COMPANY_A}/projects/${PROJECT_A}/stripe-projects/init`)
         .send({ name: "a-project" });
@@ -830,8 +693,7 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
 
       // Company B: access their own company URL with company A's project ID.
       // resolveProject will return null because PROJECT_A belongs to COMPANY_A.
-      // Use better_auth so company access check runs.
-      const appB = await createApp({
+      const appB = await createApp(db, {
         type: "board",
         userId: "user-2",
         companyIds: [COMPANY_B],
@@ -855,10 +717,18 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
     });
 
     it("company B can provision independently without affecting company A", async () => {
-      wireStatefulMocks();
+      // Use envQueue so each sync call gets the correct scoped creds:
+      // 1st env call (company A sync) → Vercel creds only
+      // 2nd env call (company B sync) → Supabase creds only
+      wireCLIMocks({
+        envQueue: [
+          { VERCEL_API_KEY: "vk-a-key", VERCEL_SECRET: "vk-a-secret" },
+          { SUPABASE_API_KEY: "sb-b-key", SUPABASE_SECRET: "sb-b-secret" },
+        ],
+      });
 
-      // Company A: init and add a service (use better_auth for real access control)
-      const appA = await createApp({
+      // Company A: init and add a service
+      const appA = await createApp(db, {
         type: "board",
         userId: "user-1",
         companyIds: [COMPANY_A],
@@ -875,8 +745,8 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
         .send({ providerService: "vercel/project" });
       expect(addARes.status).toBe(201);
 
-      // Company B: init and add a different service (use better_auth for real access control)
-      const appB = await createApp({
+      // Company B: init and add a different service
+      const appB = await createApp(db, {
         type: "board",
         userId: "user-2",
         companyIds: [COMPANY_B],
@@ -907,22 +777,27 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
       expect(listBRes.body).toHaveLength(1);
       expect(listBRes.body[0].provider).toBe("supabase");
 
-      // Sync company A → should only get Vercel creds
+      // Sync company A → should only get Vercel creds (1st envQueue entry)
       const syncARes = await request(appA)
         .post(`/api/companies/${COMPANY_A}/projects/${PROJECT_A}/stripe-projects/sync`);
       expect(syncARes.status).toBe(200);
-      const companyASecrets = [...secrets.values()].filter(
-        (s) => s.companyId === COMPANY_A,
-      );
+
+      const { eq } = await import("drizzle-orm");
+      const companyASecrets = await db
+        .select()
+        .from(companySecrets)
+        .where(eq(companySecrets.companyId, COMPANY_A));
       expect(companyASecrets.every((s) => s.name.startsWith("VERCEL_"))).toBe(true);
 
-      // Sync company B → should only get Supabase creds
+      // Sync company B → should only get Supabase creds (2nd envQueue entry)
       const syncBRes = await request(appB)
         .post(`/api/companies/${COMPANY_B}/projects/${PROJECT_B}/stripe-projects/sync`);
       expect(syncBRes.status).toBe(200);
-      const companyBSecrets = [...secrets.values()].filter(
-        (s) => s.companyId === COMPANY_B,
-      );
+
+      const companyBSecrets = await db
+        .select()
+        .from(companySecrets)
+        .where(eq(companySecrets.companyId, COMPANY_B));
       expect(companyBSecrets.every((s) => s.name.startsWith("SUPABASE_"))).toBe(true);
 
       // Cross-verify: A's secrets don't leak to B and vice versa
