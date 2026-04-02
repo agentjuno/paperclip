@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { StripeProvisionedService, StripeCatalogService } from "@paperclipai/shared";
+import type { StripeProvisionedService } from "@paperclipai/shared";
 import { Plus, RefreshCw, RotateCw, Trash2, Server, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,152 +16,13 @@ import { stripeProjectsApi } from "../api/stripe-projects";
 import { queryKeys } from "../lib/queryKeys";
 import { useToast } from "../context/ToastContext";
 import { StatusBadge } from "./StatusBadge";
+import { ServiceCatalogDialog } from "./ServiceCatalogDialog";
 
 /* ── Helper ── */
 
 function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
-/* ── Add Service Dialog ── */
-
-function AddServiceDialog({
-  open,
-  onOpenChange,
-  companyId,
-  projectId,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  companyId: string;
-  projectId: string;
-}) {
-  const queryClient = useQueryClient();
-  const { pushToast } = useToast();
-  const [selectedService, setSelectedService] = useState<StripeCatalogService | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<string>("");
-
-  const { data: catalog, isLoading: catalogLoading } = useQuery({
-    queryKey: queryKeys.stripeProjects.catalog(companyId, categoryFilter || undefined),
-    queryFn: () => stripeProjectsApi.catalog(companyId, categoryFilter || undefined),
-    enabled: open,
-  });
-
-  const addMutation = useMutation({
-    mutationFn: (providerService: string) =>
-      stripeProjectsApi.addService(companyId, projectId, providerService),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.stripeProjects.services(companyId, projectId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.stripeProjects.status(companyId, projectId) });
-      pushToast({ title: "Service added successfully", tone: "success" });
-      setSelectedService(null);
-      onOpenChange(false);
-    },
-    onError: (err: Error) => {
-      pushToast({ title: "Failed to add service", body: err.message, tone: "error" });
-    },
-  });
-
-  const categories = Array.from(
-    new Set((catalog ?? []).map((s) => s.category).filter(Boolean)),
-  ).sort();
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Add Service</DialogTitle>
-          <DialogDescription>
-            Browse the service catalog and select a service to provision.
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Category filter */}
-        {categories.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
-                categoryFilter === ""
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-              }`}
-              onClick={() => setCategoryFilter("")}
-            >
-              All
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
-                  categoryFilter === cat
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
-                onClick={() => setCategoryFilter(cat)}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Catalog list */}
-        <div className="max-h-64 overflow-y-auto space-y-1">
-          {catalogLoading ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <Loader2 className="animate-spin mr-2 size-4" />
-              Loading catalog…
-            </div>
-          ) : !catalog?.length ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No services available.
-            </p>
-          ) : (
-            catalog.map((service) => (
-              <button
-                key={service.id}
-                onClick={() => setSelectedService(service)}
-                className={`w-full text-left rounded-md px-3 py-2 text-sm transition-colors ${
-                  selectedService?.id === service.id
-                    ? "bg-accent text-accent-foreground"
-                    : "hover:bg-accent/50"
-                }`}
-              >
-                <div className="font-medium">{service.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {service.provider} · {service.category}
-                </div>
-                {service.description && (
-                  <div className="text-xs text-muted-foreground mt-0.5">{service.description}</div>
-                )}
-              </button>
-            ))
-          )}
-        </div>
-
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" size="sm">
-              Cancel
-            </Button>
-          </DialogClose>
-          <Button
-            size="sm"
-            disabled={!selectedService || addMutation.isPending}
-            onClick={() => {
-              if (selectedService) {
-                addMutation.mutate(selectedService.id);
-              }
-            }}
-          >
-            {addMutation.isPending && <Loader2 className="animate-spin" />}
-            Add Service
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 /* ── Remove confirmation dialog ── */
@@ -410,7 +271,7 @@ export function InfrastructureTab({
       )}
 
       {/* Dialogs */}
-      <AddServiceDialog
+      <ServiceCatalogDialog
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
         companyId={companyId}
