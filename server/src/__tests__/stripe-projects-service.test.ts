@@ -691,6 +691,778 @@ describe("stripeProjectsService", () => {
   });
 
   /* ================================================================ */
+  /*  addService                                                       */
+  /* ================================================================ */
+  describe("addService", () => {
+    const connectionRow = {
+      id: "conn-1",
+      companyId: "c-1",
+      projectId: "p-1",
+      stripeProjectName: "my-project",
+      stripeProjectDir: "/tmp/sp",
+      status: "active",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    /* VAL-SVC-008: addService provisions via CLI, stores DB record, returns record */
+    it("calls CLI add, stores DB record, and returns the provisioned service", async () => {
+      const cliOutput = {
+        id: "svc-123",
+        tier: "pro",
+        dashboardUrl: "https://vercel.com/dashboard",
+      };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(cliOutput),
+      });
+
+      let insertedRow: any = null;
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionRow]).then(resolve),
+            }),
+          }),
+        }),
+        insert: () => ({
+          values: (data: any) => {
+            insertedRow = {
+              ...data,
+              id: crypto.randomUUID(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            return {
+              returning: () => ({
+                then: (resolve: any) => Promise.resolve([insertedRow]).then(resolve),
+              }),
+            };
+          },
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+      const result = await svc.addService("conn-1", "vercel/project");
+
+      // Verify CLI was called with correct args
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, args] = spawnFn.mock.calls[0];
+      expect(args).toContain("vercel/project");
+
+      // Verify DB record
+      expect(insertedRow).not.toBeNull();
+      expect(insertedRow.connectionId).toBe("conn-1");
+      expect(insertedRow.providerService).toBe("vercel/project");
+      expect(insertedRow.provider).toBe("vercel");
+      expect(insertedRow.serviceType).toBe("project");
+
+      // Verify return value
+      expect(result).toMatchObject({
+        connectionId: "conn-1",
+        providerService: "vercel/project",
+        provider: "vercel",
+        serviceType: "project",
+        status: "active",
+      });
+      expect(result.id).toBeDefined();
+    });
+
+    /* VAL-SVC-009: addService returns resource info from provider */
+    it("returns provider-specific resource information from CLI JSON", async () => {
+      const cliOutput = {
+        tier: "pro",
+        dashboardUrl: "https://vercel.com/dashboard",
+        region: "us-east-1",
+      };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(cliOutput),
+      });
+
+      let insertedRow: any = null;
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionRow]).then(resolve),
+            }),
+          }),
+        }),
+        insert: () => ({
+          values: (data: any) => {
+            insertedRow = {
+              ...data,
+              id: crypto.randomUUID(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            return {
+              returning: () => ({
+                then: (resolve: any) => Promise.resolve([insertedRow]).then(resolve),
+              }),
+            };
+          },
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+      const result = await svc.addService("conn-1", "vercel/project");
+
+      // Resource metadata should contain the CLI output
+      expect(result.resourceMetadata).toBeDefined();
+      expect(result.resourceMetadata).toMatchObject({
+        dashboardUrl: "https://vercel.com/dashboard",
+        region: "us-east-1",
+      });
+      expect(result.tier).toBe("pro");
+    });
+
+    /* VAL-SVC-010: addService fails when connection does not exist (no CLI call) */
+    it("throws notFound when connection does not exist, without calling CLI", async () => {
+      const spawnFn = makeSpawnFn({ stdout: "{}" });
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+
+      await expect(svc.addService("nonexistent", "vercel/project")).rejects.toThrow(HttpError);
+      await expect(svc.addService("nonexistent", "vercel/project")).rejects.toThrow(/not found/i);
+
+      // CLI should NOT have been called
+      expect(spawnFn).not.toHaveBeenCalled();
+    });
+
+    /* VAL-SVC-011: addService handles provider errors (no DB row on failure) */
+    it("does not create DB row when CLI fails", async () => {
+      const spawnFn = makeSpawnFn({
+        stderr: "Error: provider rejected request — quota exceeded",
+        exitCode: 1,
+      });
+
+      const insertSpy = vi.fn();
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionRow]).then(resolve),
+            }),
+          }),
+        }),
+        insert: () => {
+          insertSpy();
+          return {
+            values: () => ({ returning: () => ({ then: (r: any) => Promise.resolve([]).then(r) }) }),
+          };
+        },
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+
+      await expect(svc.addService("conn-1", "vercel/project")).rejects.toThrow(StripeProjectsCliError);
+
+      // DB insert should NOT have been called
+      expect(insertSpy).not.toHaveBeenCalled();
+    });
+
+    /* VAL-SVC-035 (partial): addService validates required arguments */
+    it("throws immediately if connectionId is missing or empty", async () => {
+      const spawnFn = makeSpawnFn({ stdout: "{}" });
+      const { db } = createFakeDb();
+      const svc = stripeProjectsService(db, { spawn: spawnFn });
+
+      await expect(svc.addService("", "vercel/project")).rejects.toThrow(/connectionId/);
+      expect(spawnFn).not.toHaveBeenCalled();
+    });
+
+    it("throws immediately if providerService is missing or empty", async () => {
+      const spawnFn = makeSpawnFn({ stdout: "{}" });
+      const { db } = createFakeDb();
+      const svc = stripeProjectsService(db, { spawn: spawnFn });
+
+      await expect(svc.addService("conn-1", "")).rejects.toThrow(/providerService/);
+      expect(spawnFn).not.toHaveBeenCalled();
+    });
+  });
+
+  /* ================================================================ */
+  /*  removeService                                                    */
+  /* ================================================================ */
+  describe("removeService", () => {
+    const serviceRow = {
+      id: "svc-1",
+      connectionId: "conn-1",
+      providerService: "vercel/project",
+      provider: "vercel",
+      serviceType: "project",
+      tier: "pro",
+      status: "active",
+      resourceMetadata: null,
+      provisionedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    /* VAL-SVC-012: removeService calls CLI and deletes DB row on success */
+    it("calls CLI remove and deletes DB row on success", async () => {
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify({ removed: true }),
+      });
+
+      const deleteSpy = vi.fn().mockReturnValue(Promise.resolve());
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([serviceRow]).then(resolve),
+            }),
+          }),
+        }),
+        delete: () => ({
+          where: () => {
+            deleteSpy();
+            return Promise.resolve();
+          },
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+      await svc.removeService("svc-1");
+
+      // CLI should have been called
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, args] = spawnFn.mock.calls[0];
+      expect(args).toContain("vercel/project");
+
+      // DB row should have been deleted
+      expect(deleteSpy).toHaveBeenCalledOnce();
+    });
+
+    /* VAL-SVC-013: removeService throws for non-existent service (no CLI call) */
+    it("throws notFound for non-existent service without calling CLI", async () => {
+      const spawnFn = makeSpawnFn({ stdout: "{}" });
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+
+      await expect(svc.removeService("nonexistent")).rejects.toThrow(HttpError);
+      await expect(svc.removeService("nonexistent")).rejects.toThrow(/not found/i);
+
+      // CLI should NOT have been called
+      expect(spawnFn).not.toHaveBeenCalled();
+    });
+
+    /* VAL-SVC-014: removeService preserves DB row on CLI failure */
+    it("preserves DB row when CLI removal fails", async () => {
+      const spawnFn = makeSpawnFn({
+        stderr: "Error: removal failed — service busy",
+        exitCode: 1,
+      });
+
+      const deleteSpy = vi.fn();
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([serviceRow]).then(resolve),
+            }),
+          }),
+        }),
+        delete: () => ({
+          where: () => {
+            deleteSpy();
+            return Promise.resolve();
+          },
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+
+      await expect(svc.removeService("svc-1")).rejects.toThrow(StripeProjectsCliError);
+
+      // DB delete should NOT have been called since CLI failed
+      expect(deleteSpy).not.toHaveBeenCalled();
+    });
+
+    /* VAL-SVC-035 (partial): removeService validates required arguments */
+    it("throws immediately if serviceId is missing or empty", async () => {
+      const spawnFn = makeSpawnFn({ stdout: "{}" });
+      const { db } = createFakeDb();
+      const svc = stripeProjectsService(db, { spawn: spawnFn });
+
+      await expect(svc.removeService("")).rejects.toThrow(/serviceId/);
+      expect(spawnFn).not.toHaveBeenCalled();
+    });
+  });
+
+  /* ================================================================ */
+  /*  syncCredentials                                                  */
+  /* ================================================================ */
+  describe("syncCredentials", () => {
+    const connectionRow = {
+      id: "conn-1",
+      companyId: "c-1",
+      projectId: "p-1",
+      stripeProjectName: "my-project",
+      stripeProjectDir: "/tmp/sp",
+      status: "active",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    function makeMockSecretSvc(existingSecrets: Record<string, { id: string; latestVersion: number }> = {}) {
+      const created: Array<{ companyId: string; name: string; value: string }> = [];
+      const rotated: Array<{ secretId: string; value: string }> = [];
+
+      return {
+        svc: {
+          getByName: vi.fn(async (_companyId: string, name: string) => {
+            return existingSecrets[name] ?? null;
+          }),
+          create: vi.fn(async (companyId: string, input: any) => {
+            created.push({ companyId, name: input.name, value: input.value });
+            return { id: crypto.randomUUID(), ...input };
+          }),
+          rotate: vi.fn(async (secretId: string, input: any) => {
+            rotated.push({ secretId, value: input.value });
+            return { id: secretId };
+          }),
+        },
+        created,
+        rotated,
+      };
+    }
+
+    /* VAL-SVC-017: syncCredentials parses env output and stores secrets */
+    it("parses env output and upserts each key-value into company_secrets", async () => {
+      const envData = {
+        DATABASE_URL: "postgres://localhost/mydb",
+        STRIPE_SECRET_KEY: "sk_test_123",
+        REDIS_URL: "redis://localhost:6379",
+      };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(envData),
+      });
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionRow]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const { svc: mockSecretSvc, created } = makeMockSecretSvc();
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+      const result = await svc.syncCredentials("conn-1");
+
+      expect(result).toEqual({ synced: true, secretsCount: 3 });
+      expect(created).toHaveLength(3);
+      expect(created[0]).toMatchObject({ companyId: "c-1", name: "DATABASE_URL", value: "postgres://localhost/mydb" });
+      expect(created[1]).toMatchObject({ companyId: "c-1", name: "STRIPE_SECRET_KEY", value: "sk_test_123" });
+      expect(created[2]).toMatchObject({ companyId: "c-1", name: "REDIS_URL", value: "redis://localhost:6379" });
+    });
+
+    /* VAL-SVC-018: syncCredentials updates existing secrets (no duplicates) */
+    it("updates existing secrets instead of creating duplicates", async () => {
+      const envData = {
+        DATABASE_URL: "postgres://localhost/newdb",
+        NEW_KEY: "new-value",
+      };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(envData),
+      });
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionRow]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      // DATABASE_URL already exists; NEW_KEY does not
+      const { svc: mockSecretSvc, created, rotated } = makeMockSecretSvc({
+        DATABASE_URL: { id: "secret-db-url", latestVersion: 1 },
+      });
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+      const result = await svc.syncCredentials("conn-1");
+
+      expect(result).toEqual({ synced: true, secretsCount: 2 });
+
+      // DATABASE_URL should be rotated (updated), not created
+      expect(rotated).toHaveLength(1);
+      expect(rotated[0]).toMatchObject({ secretId: "secret-db-url", value: "postgres://localhost/newdb" });
+
+      // NEW_KEY should be created
+      expect(created).toHaveLength(1);
+      expect(created[0]).toMatchObject({ companyId: "c-1", name: "NEW_KEY", value: "new-value" });
+    });
+
+    /* VAL-SVC-019: syncCredentials handles empty env output without error */
+    it("handles empty env output gracefully", async () => {
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify({}),
+      });
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionRow]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const { svc: mockSecretSvc, created, rotated } = makeMockSecretSvc();
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+      const result = await svc.syncCredentials("conn-1");
+
+      expect(result).toEqual({ synced: true, secretsCount: 0 });
+      expect(created).toHaveLength(0);
+      expect(rotated).toHaveLength(0);
+    });
+
+    /* VAL-SVC-020: syncCredentials handles CLI failure without modifying secrets */
+    it("does not modify secrets when CLI fails", async () => {
+      const spawnFn = makeSpawnFn({
+        stderr: "Error: failed to fetch env",
+        exitCode: 1,
+      });
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionRow]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const { svc: mockSecretSvc, created, rotated } = makeMockSecretSvc();
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+
+      await expect(svc.syncCredentials("conn-1")).rejects.toThrow(StripeProjectsCliError);
+
+      // No secrets should have been modified
+      expect(created).toHaveLength(0);
+      expect(rotated).toHaveLength(0);
+      expect(mockSecretSvc.getByName).not.toHaveBeenCalled();
+    });
+
+    it("handles array format env output", async () => {
+      const envData = [
+        { key: "DATABASE_URL", value: "postgres://localhost/mydb" },
+        { key: "API_KEY", value: "key-123" },
+      ];
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(envData),
+      });
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionRow]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const { svc: mockSecretSvc, created } = makeMockSecretSvc();
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+      const result = await svc.syncCredentials("conn-1");
+
+      expect(result).toEqual({ synced: true, secretsCount: 2 });
+      expect(created).toHaveLength(2);
+    });
+
+    it("throws notFound when connection does not exist", async () => {
+      const spawnFn = makeSpawnFn({ stdout: "{}" });
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const { svc: mockSecretSvc } = makeMockSecretSvc();
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+
+      await expect(svc.syncCredentials("nonexistent")).rejects.toThrow(HttpError);
+      await expect(svc.syncCredentials("nonexistent")).rejects.toThrow(/not found/i);
+      expect(spawnFn).not.toHaveBeenCalled();
+    });
+
+    /* VAL-SVC-035 (partial): syncCredentials validates required arguments */
+    it("throws immediately if connectionId is missing or empty", async () => {
+      const spawnFn = makeSpawnFn({ stdout: "{}" });
+      const { db } = createFakeDb();
+      const svc = stripeProjectsService(db, { spawn: spawnFn });
+
+      await expect(svc.syncCredentials("")).rejects.toThrow(/connectionId/);
+      expect(spawnFn).not.toHaveBeenCalled();
+    });
+  });
+
+  /* ================================================================ */
+  /*  rotateCredentials                                                */
+  /* ================================================================ */
+  describe("rotateCredentials", () => {
+    const connectionRow = {
+      id: "conn-1",
+      companyId: "c-1",
+      projectId: "p-1",
+      stripeProjectName: "my-project",
+      stripeProjectDir: "/tmp/sp",
+      status: "active",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const serviceRow = {
+      id: "svc-1",
+      connectionId: "conn-1",
+      providerService: "vercel/project",
+      provider: "vercel",
+      serviceType: "project",
+      tier: "pro",
+      status: "active",
+      resourceMetadata: null,
+      provisionedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    function makeMockSecretSvc(existingSecrets: Record<string, { id: string; latestVersion: number }> = {}) {
+      const created: Array<{ companyId: string; name: string; value: string }> = [];
+      const rotated: Array<{ secretId: string; value: string }> = [];
+
+      return {
+        svc: {
+          getByName: vi.fn(async (_companyId: string, name: string) => {
+            return existingSecrets[name] ?? null;
+          }),
+          create: vi.fn(async (companyId: string, input: any) => {
+            created.push({ companyId, name: input.name, value: input.value });
+            return { id: crypto.randomUUID(), ...input };
+          }),
+          rotate: vi.fn(async (secretId: string, input: any) => {
+            rotated.push({ secretId, value: input.value });
+            return { id: secretId };
+          }),
+        },
+        created,
+        rotated,
+      };
+    }
+
+    /** Helper to build a mockDb that returns connectionRow for the first
+     *  select call and serviceRow for the second. */
+    function makeMockDbWithConnectionAndService() {
+      let selectCallCount = 0;
+      return {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => {
+                selectCallCount++;
+                // First select: connection lookup; second: service lookup
+                if (selectCallCount === 1) {
+                  return Promise.resolve([connectionRow]).then(resolve);
+                }
+                return Promise.resolve([serviceRow]).then(resolve);
+              },
+            }),
+          }),
+        }),
+      } as any;
+    }
+
+    /* VAL-SVC-021: rotateCredentials rotates via CLI and updates stored secrets */
+    it("calls CLI rotate and updates secrets with new values", async () => {
+      const rotatedEnv = {
+        DATABASE_URL: "postgres://localhost/rotated-db",
+        API_KEY: "new-api-key-456",
+      };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(rotatedEnv),
+      });
+
+      const mockDb = makeMockDbWithConnectionAndService();
+
+      const { svc: mockSecretSvc, rotated } = makeMockSecretSvc({
+        DATABASE_URL: { id: "secret-db-url", latestVersion: 1 },
+        API_KEY: { id: "secret-api-key", latestVersion: 2 },
+      });
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+      const result = await svc.rotateCredentials("conn-1", "svc-1");
+
+      expect(result).toEqual({ rotated: true });
+
+      // CLI should have been called with the service's providerService
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, args] = spawnFn.mock.calls[0];
+      expect(args).toContain("vercel/project");
+
+      // Both secrets should have been rotated with new values
+      expect(rotated).toHaveLength(2);
+      expect(rotated[0]).toMatchObject({ secretId: "secret-db-url", value: "postgres://localhost/rotated-db" });
+      expect(rotated[1]).toMatchObject({ secretId: "secret-api-key", value: "new-api-key-456" });
+    });
+
+    /* VAL-SVC-022: rotateCredentials fails for non-existent connection */
+    it("throws notFound when connection does not exist", async () => {
+      const spawnFn = makeSpawnFn({ stdout: "{}" });
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const { svc: mockSecretSvc } = makeMockSecretSvc();
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+
+      await expect(svc.rotateCredentials("nonexistent", "svc-1")).rejects.toThrow(HttpError);
+      await expect(svc.rotateCredentials("nonexistent", "svc-1")).rejects.toThrow(/not found/i);
+
+      // CLI should NOT have been called
+      expect(spawnFn).not.toHaveBeenCalled();
+    });
+
+    /* VAL-SVC-023: rotateCredentials preserves secrets on CLI failure */
+    it("preserves existing secrets when CLI rotation fails", async () => {
+      const spawnFn = makeSpawnFn({
+        stderr: "Error: provider refused rotation",
+        exitCode: 1,
+      });
+
+      const mockDb = makeMockDbWithConnectionAndService();
+
+      const { svc: mockSecretSvc, created, rotated } = makeMockSecretSvc({
+        DATABASE_URL: { id: "secret-db-url", latestVersion: 1 },
+      });
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+
+      await expect(svc.rotateCredentials("conn-1", "svc-1")).rejects.toThrow(StripeProjectsCliError);
+
+      // No secrets should have been modified
+      expect(created).toHaveLength(0);
+      expect(rotated).toHaveLength(0);
+      expect(mockSecretSvc.getByName).not.toHaveBeenCalled();
+    });
+
+    it("throws notFound when service does not exist for the connection", async () => {
+      const spawnFn = makeSpawnFn({ stdout: "{}" });
+
+      let selectCallCount = 0;
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => {
+                selectCallCount++;
+                // First select returns connection, second returns no service
+                if (selectCallCount === 1) {
+                  return Promise.resolve([connectionRow]).then(resolve);
+                }
+                return Promise.resolve([]).then(resolve);
+              },
+            }),
+          }),
+        }),
+      };
+
+      const { svc: mockSecretSvc } = makeMockSecretSvc();
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+
+      await expect(svc.rotateCredentials("conn-1", "nonexistent-svc")).rejects.toThrow(HttpError);
+      await expect(svc.rotateCredentials("conn-1", "nonexistent-svc")).rejects.toThrow(/not found/i);
+
+      // CLI should NOT have been called
+      expect(spawnFn).not.toHaveBeenCalled();
+    });
+
+    it("creates new secrets for credentials that don't exist yet during rotation", async () => {
+      const rotatedEnv = {
+        NEW_CREDENTIAL: "brand-new-value",
+      };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(rotatedEnv),
+      });
+
+      const mockDb = makeMockDbWithConnectionAndService();
+
+      // No existing secrets
+      const { svc: mockSecretSvc, created } = makeMockSecretSvc();
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+      const result = await svc.rotateCredentials("conn-1", "svc-1");
+
+      expect(result).toEqual({ rotated: true });
+      expect(created).toHaveLength(1);
+      expect(created[0]).toMatchObject({
+        companyId: "c-1",
+        name: "NEW_CREDENTIAL",
+        value: "brand-new-value",
+      });
+    });
+
+    /* VAL-SVC-035 (partial): rotateCredentials validates required arguments */
+    it("throws immediately if connectionId is missing or empty", async () => {
+      const spawnFn = makeSpawnFn({ stdout: "{}" });
+      const { db } = createFakeDb();
+      const svc = stripeProjectsService(db, { spawn: spawnFn });
+
+      await expect(svc.rotateCredentials("", "svc-1")).rejects.toThrow(/connectionId/);
+      expect(spawnFn).not.toHaveBeenCalled();
+    });
+
+    it("throws immediately if serviceId is missing or empty", async () => {
+      const spawnFn = makeSpawnFn({ stdout: "{}" });
+      const { db } = createFakeDb();
+      const svc = stripeProjectsService(db, { spawn: spawnFn });
+
+      await expect(svc.rotateCredentials("conn-1", "")).rejects.toThrow(/serviceId/);
+      expect(spawnFn).not.toHaveBeenCalled();
+    });
+  });
+
+  /* ================================================================ */
   /*  Cross-cutting: argument validation (VAL-SVC-035)                 */
   /* ================================================================ */
   describe("argument validation across all methods", () => {
@@ -709,6 +1481,20 @@ describe("stripeProjectsService", () => {
 
       // listServices
       await expect(svc.listServices("")).rejects.toThrow(/connectionId/);
+
+      // addService
+      await expect(svc.addService("", "vercel/project")).rejects.toThrow(/connectionId/);
+      await expect(svc.addService("conn-1", "")).rejects.toThrow(/providerService/);
+
+      // removeService
+      await expect(svc.removeService("")).rejects.toThrow(/serviceId/);
+
+      // syncCredentials
+      await expect(svc.syncCredentials("")).rejects.toThrow(/connectionId/);
+
+      // rotateCredentials
+      await expect(svc.rotateCredentials("", "svc-1")).rejects.toThrow(/connectionId/);
+      await expect(svc.rotateCredentials("conn-1", "")).rejects.toThrow(/serviceId/);
 
       // None of these should have triggered CLI calls
       expect(spawnFn).not.toHaveBeenCalled();
