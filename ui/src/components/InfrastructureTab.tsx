@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { StripeProvisionedService } from "@paperclipai/shared";
-import { Plus, RefreshCw, RotateCw, Trash2, Server, Loader2 } from "lucide-react";
+import { Plus, RefreshCw, RotateCw, Trash2, Server, Loader2, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,6 +12,9 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { ApiError } from "../api/client";
+import { agentsApi } from "../api/agents";
+import { issuesApi } from "../api/issues";
 import { stripeProjectsApi } from "../api/stripe-projects";
 import { queryKeys } from "../lib/queryKeys";
 import { useToast } from "../context/ToastContext";
@@ -193,6 +196,40 @@ export function InfrastructureTab({
     },
   });
 
+  /* ── Detect Stripe-not-initialized (409) ── */
+  const isNotInitialized =
+    error instanceof ApiError && error.status === 409;
+
+  /* ── CEO agent lookup (only when not initialized) ── */
+  const { data: agents } = useQuery({
+    queryKey: queryKeys.agents.list(companyId),
+    queryFn: () => agentsApi.list(companyId),
+    enabled: !!isNotInitialized,
+  });
+  const ceoAgent = agents?.find((a) => a.role === "ceo");
+
+  /* ── Request init mutation ── */
+  const [requested, setRequested] = useState(false);
+  const requestInitMutation = useMutation({
+    mutationFn: () =>
+      issuesApi.create(companyId, {
+        title: "Initialize Stripe project infrastructure",
+        description:
+          "The Infrastructure tab requires Stripe project initialization. Please run the Stripe CLI setup to connect this project.",
+        projectId,
+        assigneeAgentId: ceoAgent?.id ?? null,
+        status: "todo",
+        priority: "high",
+      }),
+    onSuccess: () => {
+      setRequested(true);
+      pushToast({ title: "Task created", body: "Stripe initialization requested", tone: "success" });
+    },
+    onError: (err: Error) => {
+      pushToast({ title: "Failed to create task", body: err.message, tone: "error" });
+    },
+  });
+
   const handleRotate = (serviceId: string) => {
     setRotatingServiceId(serviceId);
     rotateMutation.mutate(serviceId);
@@ -208,7 +245,35 @@ export function InfrastructureTab({
     );
   }
 
-  /* ── Error state ── */
+  /* ── Not-initialized empty state ── */
+  if (isNotInitialized) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border p-8 text-center">
+        <Server className="h-10 w-10 text-muted-foreground" />
+        <div>
+          <h3 className="text-sm font-medium">Stripe project not initialized</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Request the CEO to set up Stripe infrastructure for this project.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          onClick={() => requestInitMutation.mutate()}
+          disabled={requestInitMutation.isPending || requested}
+        >
+          {requested ? (
+            <><CheckCircle className="mr-2 h-4 w-4" /> Task Created</>
+          ) : requestInitMutation.isPending ? (
+            <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Creating task…</>
+          ) : (
+            "Request Stripe Initialization"
+          )}
+        </Button>
+      </div>
+    );
+  }
+
+  /* ── Generic error state ── */
   if (error) {
     return (
       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
