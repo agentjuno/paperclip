@@ -1,5 +1,7 @@
 import { Router } from "express";
+import { eq } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
+import { stripeProjectConnections } from "@paperclipai/db";
 import {
   initStripeProjectSchema,
   addStripeServiceSchema,
@@ -39,6 +41,18 @@ export function stripeProjectRoutes(db: Db) {
     if (!project) return null;
     if (project.companyId !== companyId) return null;
     return project;
+  }
+
+  /**
+   * Look up the stripe_project_connections record by projectId.
+   * Returns the connection row, or null if no connection exists.
+   */
+  async function resolveConnection(projectId: string) {
+    const rows = await db
+      .select()
+      .from(stripeProjectConnections)
+      .where(eq(stripeProjectConnections.projectId, projectId));
+    return rows[0] ?? null;
   }
 
   /* ================================================================ */
@@ -116,10 +130,13 @@ export function stripeProjectRoutes(db: Db) {
         return;
       }
 
-      // The service's status method looks up by connectionId.
-      // We need to find the connection for this project first.
-      // Pass projectId to the status method — the service will resolve it.
-      const result = await svc.status(projectId);
+      const connection = await resolveConnection(projectId);
+      if (!connection) {
+        res.status(409).json({ error: "Stripe project not initialized" });
+        return;
+      }
+
+      const result = await svc.status(connection.id);
       res.json(result);
     },
   );
@@ -142,7 +159,13 @@ export function stripeProjectRoutes(db: Db) {
         return;
       }
 
-      const services = await svc.listServices(projectId);
+      const connection = await resolveConnection(projectId);
+      if (!connection) {
+        res.status(409).json({ error: "Stripe project not initialized" });
+        return;
+      }
+
+      const services = await svc.listServices(connection.id);
       res.json(services);
     },
   );
@@ -166,7 +189,13 @@ export function stripeProjectRoutes(db: Db) {
         return;
       }
 
-      const service = await svc.addService(projectId, req.body.providerService);
+      const connection = await resolveConnection(projectId);
+      if (!connection) {
+        res.status(409).json({ error: "Stripe project not initialized" });
+        return;
+      }
+
+      const service = await svc.addService(connection.id, req.body.providerService);
 
       const actor = getActorInfo(req);
       await logActivity(db, {
@@ -239,7 +268,13 @@ export function stripeProjectRoutes(db: Db) {
         return;
       }
 
-      const result = await svc.syncCredentials(projectId);
+      const connection = await resolveConnection(projectId);
+      if (!connection) {
+        res.status(409).json({ error: "Stripe project not initialized" });
+        return;
+      }
+
+      const result = await svc.syncCredentials(connection.id);
 
       const actor = getActorInfo(req);
       await logActivity(db, {
@@ -249,7 +284,7 @@ export function stripeProjectRoutes(db: Db) {
         agentId: actor.agentId,
         action: "stripe_project.credentials_synced",
         entityType: "stripe_project_connection",
-        entityId: projectId,
+        entityId: connection.id,
         details: { secretsCount: result.secretsCount },
       });
 
@@ -276,7 +311,13 @@ export function stripeProjectRoutes(db: Db) {
         return;
       }
 
-      const result = await svc.rotateCredentials(projectId, serviceId);
+      const connection = await resolveConnection(projectId);
+      if (!connection) {
+        res.status(409).json({ error: "Stripe project not initialized" });
+        return;
+      }
+
+      const result = await svc.rotateCredentials(connection.id, serviceId);
 
       const actor = getActorInfo(req);
       await logActivity(db, {

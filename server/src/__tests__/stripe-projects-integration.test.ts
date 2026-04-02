@@ -53,8 +53,10 @@ interface MockSecret {
 /*  Stateful mock state (reset per-test)                               */
 /* ------------------------------------------------------------------ */
 
-/** Connections keyed by projectId (route passes projectId to service) */
+/** Connections keyed by connectionId (route resolves projectId → connection.id) */
 let connections: Map<string, MockConnection>;
+/** Reverse lookup: projectId → connectionId */
+let connectionsByProjectId: Map<string, string>;
 /** Services keyed by serviceId */
 let services: Map<string, MockService>;
 /** Secrets keyed by `${companyId}:${name}` */
@@ -62,6 +64,7 @@ let secrets: Map<string, MockSecret>;
 
 function resetState() {
   connections = new Map();
+  connectionsByProjectId = new Map();
   services = new Map();
   secrets = new Map();
 }
@@ -87,11 +90,33 @@ const mockProjectService = vi.hoisted(() => ({
   getById: vi.fn(),
 }));
 
+/**
+ * Shared state for the drizzle-orm eq() mock to communicate the
+ * queried projectId to the mock DB's .where() handler.
+ */
+const eqState = vi.hoisted(() => ({ lastQueriedProjectId: null as string | null }));
+
 vi.mock("../services/index.js", () => ({
   stripeProjectsService: () => mockSvc,
   projectService: () => mockProjectService,
   logActivity: mockLogActivity,
 }));
+
+/**
+ * Mock drizzle-orm's eq() to capture the second argument (the projectId value)
+ * so the mock DB's .where() handler can look up the right connection.
+ */
+vi.mock("drizzle-orm", async (importOriginal) => {
+  const original = await importOriginal() as Record<string, unknown>;
+  return {
+    ...original,
+    eq: (_column: unknown, value: unknown) => {
+      // Store the queried projectId for the mock DB to use
+      eqState.lastQueriedProjectId = typeof value === "string" ? value : null;
+      return { _type: "eq", value };
+    },
+  };
+});
 
 /* ------------------------------------------------------------------ */
 /*  Import HttpError after mocks are wired                             */
@@ -135,6 +160,38 @@ function nonBoardActor(overrides: ActorOverrides = {}): Record<string, unknown> 
   };
 }
 
+/**
+ * Creates a mock Drizzle-like DB that supports the
+ * select().from(stripeProjectConnections).where(eq(...projectId)) chain
+ * used by the resolveConnection helper in the route file.
+ *
+ * The route calls: eq(stripeProjectConnections.projectId, projectId)
+ * Our mock of eq() (via vi.mock("drizzle-orm")) captures the value into
+ * eqState.lastQueriedProjectId so .where() can filter correctly.
+ */
+function createMockDb() {
+  return {
+    select: () => ({
+      from: () => ({
+        where: () => {
+          const projectId = eqState.lastQueriedProjectId;
+          eqState.lastQueriedProjectId = null;
+          if (projectId) {
+            const connId = connectionsByProjectId.get(projectId);
+            if (connId) {
+              const conn = connections.get(connId);
+              return Promise.resolve(conn ? [conn] : []);
+            }
+            return Promise.resolve([]);
+          }
+          // Fallback: return all connections
+          return Promise.resolve([...connections.values()]);
+        },
+      }),
+    }),
+  };
+}
+
 async function createApp(actor: Record<string, unknown> = boardActor()) {
   const stripeProjectRoutes = await loadRoutes();
   const app = express();
@@ -143,7 +200,7 @@ async function createApp(actor: Record<string, unknown> = boardActor()) {
     (req as any).actor = actor;
     next();
   });
-  app.use("/api", stripeProjectRoutes({} as any));
+  app.use("/api", stripeProjectRoutes(createMockDb() as any));
   app.use(errorHandler);
   return app;
 }
@@ -188,7 +245,7 @@ function wireStatefulMocks(opts?: {
   mockSvc.init.mockImplementation(
     async (companyId: string, projectId: string, name: string) => {
       // Check for duplicate
-      if (connections.has(projectId)) {
+      if (connectionsByProjectId.has(projectId)) {
         throw new HttpError(409, "Stripe project already initialized for this company and project");
       }
       const connection: MockConnection = {
@@ -201,7 +258,8 @@ function wireStatefulMocks(opts?: {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      connections.set(projectId, connection);
+      connections.set(connection.id, connection);
+      connectionsByProjectId.set(projectId, connection.id);
       return connection;
     },
   );
@@ -214,8 +272,8 @@ function wireStatefulMocks(opts?: {
   });
 
   mockSvc.addService.mockImplementation(
-    async (projectId: string, providerService: string) => {
-      const connection = connections.get(projectId);
+    async (connectionId: string, providerService: string) => {
+      const connection = connections.get(connectionId);
       if (!connection) {
         throw new HttpError(404, "Stripe project connection not found");
       }
@@ -246,10 +304,10 @@ function wireStatefulMocks(opts?: {
     },
   );
 
-  mockSvc.listServices.mockImplementation(async (projectId: string) => {
-    const connection = connections.get(projectId);
+  mockSvc.listServices.mockImplementation(async (connectionId: string) => {
+    const connection = connections.get(connectionId);
     if (!connection) return [];
-    return [...services.values()].filter((s) => s.connectionId === connection.id);
+    return [...services.values()].filter((s) => s.connectionId === connectionId);
   });
 
   mockSvc.removeService.mockImplementation(async (serviceId: string) => {
@@ -272,15 +330,15 @@ function wireStatefulMocks(opts?: {
     }
   });
 
-  mockSvc.syncCredentials.mockImplementation(async (projectId: string) => {
-    const connection = connections.get(projectId);
+  mockSvc.syncCredentials.mockImplementation(async (connectionId: string) => {
+    const connection = connections.get(connectionId);
     if (!connection) {
       throw new HttpError(404, "Stripe project connection not found");
     }
 
     // Generate credentials for each provisioned service in this connection
     const connServices = [...services.values()].filter(
-      (s) => s.connectionId === connection.id,
+      (s) => s.connectionId === connectionId,
     );
     let count = 0;
 
@@ -313,13 +371,13 @@ function wireStatefulMocks(opts?: {
   });
 
   mockSvc.rotateCredentials.mockImplementation(
-    async (projectId: string, serviceId: string) => {
-      const connection = connections.get(projectId);
+    async (connectionId: string, serviceId: string) => {
+      const connection = connections.get(connectionId);
       if (!connection) {
         throw new HttpError(404, "Stripe project connection not found");
       }
       const svc = services.get(serviceId);
-      if (!svc || svc.connectionId !== connection.id) {
+      if (!svc || svc.connectionId !== connectionId) {
         throw new HttpError(404, "Provisioned service not found");
       }
 
@@ -339,13 +397,13 @@ function wireStatefulMocks(opts?: {
     },
   );
 
-  mockSvc.status.mockImplementation(async (projectId: string) => {
-    const connection = connections.get(projectId);
+  mockSvc.status.mockImplementation(async (connectionId: string) => {
+    const connection = connections.get(connectionId);
     if (!connection) {
       throw new HttpError(404, "Stripe project connection not found");
     }
     const connServices = [...services.values()].filter(
-      (s) => s.connectionId === connection.id,
+      (s) => s.connectionId === connectionId,
     );
     return {
       name: connection.stripeProjectName,
@@ -373,6 +431,7 @@ describe("Stripe Projects Integration — Cross-Area API Flows", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetState();
+    eqState.lastQueriedProjectId = null;
     mockLogActivity.mockResolvedValue(undefined);
 
     // Default: project-a belongs to company-a, project-b to company-b

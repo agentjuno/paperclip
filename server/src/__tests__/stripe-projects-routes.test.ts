@@ -75,6 +75,31 @@ function noActor(): Record<string, unknown> {
   return { type: "none" };
 }
 
+/**
+ * In-memory store used by the mock DB to resolve connections by projectId.
+ * Routes call db.select().from(stripeProjectConnections).where(eq(...projectId))
+ * to look up the connection for a given project.
+ * Tests populate this store (or clear it) to control resolveConnection behavior.
+ */
+let mockConnectionsByProjectId: Map<string, Record<string, unknown>>;
+
+/**
+ * Creates a fake Drizzle-like DB that supports the
+ * select().from().where() chain used by resolveConnection in the route.
+ * Returns all entries from mockConnectionsByProjectId; the route picks [0].
+ * Since each test has at most one connection, this is sufficient.
+ */
+function createMockDb() {
+  return {
+    select: () => ({
+      from: () => ({
+        where: () =>
+          Promise.resolve([...mockConnectionsByProjectId.values()]),
+      }),
+    }),
+  };
+}
+
 async function createApp(actor: Record<string, unknown> = boardActor()) {
   const stripeProjectRoutes = await loadRoutes();
   const app = express();
@@ -83,7 +108,7 @@ async function createApp(actor: Record<string, unknown> = boardActor()) {
     (req as any).actor = actor;
     next();
   });
-  app.use("/api", stripeProjectRoutes({} as any));
+  app.use("/api", stripeProjectRoutes(createMockDb() as any));
   app.use(errorHandler);
   return app;
 }
@@ -151,6 +176,19 @@ describe("stripe-projects routes", () => {
       companyId: COMPANY_ID,
       name: "Test Project",
     });
+    // Default: a connection exists for the test project
+    mockConnectionsByProjectId = new Map([
+      [PROJECT_ID, {
+        id: CONNECTION_ID,
+        companyId: COMPANY_ID,
+        projectId: PROJECT_ID,
+        stripeProjectName: "my-project",
+        stripeProjectDir: "/tmp/proj",
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }],
+    ]);
   });
 
   /* ---------------------------------------------------------------- */
@@ -316,8 +354,6 @@ describe("stripe-projects routes", () => {
   describe("GET /companies/:companyId/projects/:projectId/stripe-projects/status", () => {
     it("returns 200 with status info", async () => {
       mockStripeProjectsService.status.mockResolvedValue(sampleStatus);
-      // Simulate that connection exists for this project
-      mockStripeProjectsService.listServices.mockResolvedValue([]);
       const app = await createApp();
 
       const res = await request(app)
@@ -328,6 +364,8 @@ describe("stripe-projects routes", () => {
         name: "my-project",
         status: "active",
       });
+      // Verify the route passes connectionId (not projectId) to the service
+      expect(mockStripeProjectsService.status).toHaveBeenCalledWith(CONNECTION_ID);
     });
 
     it("returns 404 for non-existent project", async () => {
@@ -341,17 +379,18 @@ describe("stripe-projects routes", () => {
     });
 
     /* VAL-API-016: Operations before init return precondition error */
-    it("returns 404/409 when connection does not exist", async () => {
-      const { HttpError } = await import("../errors.js");
-      mockStripeProjectsService.status.mockRejectedValue(
-        new HttpError(404, "Stripe project connection not found"),
-      );
+    it("returns 409 when connection does not exist", async () => {
+      // Clear the connection store to simulate no init
+      mockConnectionsByProjectId.clear();
       const app = await createApp();
 
       const res = await request(app)
         .get(`/api/companies/${COMPANY_ID}/projects/${PROJECT_ID}/stripe-projects/status`);
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(409);
+      expect(res.body.error).toContain("Stripe project not initialized");
+      // Service should never be called when no connection exists
+      expect(mockStripeProjectsService.status).not.toHaveBeenCalled();
     });
 
     it("returns 403 for non-board actor", async () => {
@@ -381,6 +420,8 @@ describe("stripe-projects routes", () => {
         id: SERVICE_ID,
         providerService: "vercel/project",
       });
+      // Verify the route passes connectionId (not projectId) to the service
+      expect(mockStripeProjectsService.listServices).toHaveBeenCalledWith(CONNECTION_ID);
     });
 
     it("returns 404 for non-existent project", async () => {
@@ -391,6 +432,19 @@ describe("stripe-projects routes", () => {
         .get(`/api/companies/${COMPANY_ID}/projects/${PROJECT_ID}/stripe-projects/services`);
 
       expect(res.status).toBe(404);
+    });
+
+    /* VAL-API-016: Operations before init return precondition error */
+    it("returns 409 when connection does not exist (no init)", async () => {
+      mockConnectionsByProjectId.clear();
+      const app = await createApp();
+
+      const res = await request(app)
+        .get(`/api/companies/${COMPANY_ID}/projects/${PROJECT_ID}/stripe-projects/services`);
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toContain("Stripe project not initialized");
+      expect(mockStripeProjectsService.listServices).not.toHaveBeenCalled();
     });
 
     it("returns 403 for non-board actor", async () => {
@@ -420,6 +474,11 @@ describe("stripe-projects routes", () => {
         id: SERVICE_ID,
         providerService: "vercel/project",
       });
+      // Verify the route passes connectionId (not projectId) to the service
+      expect(mockStripeProjectsService.addService).toHaveBeenCalledWith(
+        CONNECTION_ID,
+        "vercel/project",
+      );
     });
 
     /* VAL-API-012: Invalid request bodies return 400 */
@@ -464,18 +523,19 @@ describe("stripe-projects routes", () => {
     });
 
     /* VAL-API-016: Operations before init return precondition error */
-    it("returns 404 when connection does not exist (no init)", async () => {
-      const { HttpError } = await import("../errors.js");
-      mockStripeProjectsService.addService.mockRejectedValue(
-        new HttpError(404, "Stripe project connection not found"),
-      );
+    it("returns 409 when connection does not exist (no init)", async () => {
+      // Clear the connection store to simulate no init
+      mockConnectionsByProjectId.clear();
       const app = await createApp();
 
       const res = await request(app)
         .post(`/api/companies/${COMPANY_ID}/projects/${PROJECT_ID}/stripe-projects/services`)
         .send({ providerService: "vercel/project" });
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(409);
+      expect(res.body.error).toContain("Stripe project not initialized");
+      // Service should never be called when no connection exists
+      expect(mockStripeProjectsService.addService).not.toHaveBeenCalled();
     });
 
     it("returns 404 for non-existent project", async () => {
@@ -577,6 +637,8 @@ describe("stripe-projects routes", () => {
         synced: true,
         secretsCount: 3,
       });
+      // Verify the route passes connectionId (not projectId) to the service
+      expect(mockStripeProjectsService.syncCredentials).toHaveBeenCalledWith(CONNECTION_ID);
     });
 
     /* VAL-API-017: Mutations create activity log entries */
@@ -596,6 +658,7 @@ describe("stripe-projects routes", () => {
           companyId: COMPANY_ID,
           action: "stripe_project.credentials_synced",
           entityType: "stripe_project_connection",
+          entityId: CONNECTION_ID,
         }),
       );
     });
@@ -608,6 +671,19 @@ describe("stripe-projects routes", () => {
         .post(`/api/companies/${COMPANY_ID}/projects/${PROJECT_ID}/stripe-projects/sync`);
 
       expect(res.status).toBe(404);
+    });
+
+    /* VAL-API-016: Operations before init return precondition error */
+    it("returns 409 when connection does not exist (no init)", async () => {
+      mockConnectionsByProjectId.clear();
+      const app = await createApp();
+
+      const res = await request(app)
+        .post(`/api/companies/${COMPANY_ID}/projects/${PROJECT_ID}/stripe-projects/sync`);
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toContain("Stripe project not initialized");
+      expect(mockStripeProjectsService.syncCredentials).not.toHaveBeenCalled();
     });
 
     it("returns 403 for non-board actor", async () => {
@@ -635,6 +711,11 @@ describe("stripe-projects routes", () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ rotated: true });
+      // Verify the route passes connectionId (not projectId) to the service
+      expect(mockStripeProjectsService.rotateCredentials).toHaveBeenCalledWith(
+        CONNECTION_ID,
+        SERVICE_ID,
+      );
     });
 
     /* VAL-API-014: Non-existent service returns 404 */
@@ -670,6 +751,19 @@ describe("stripe-projects routes", () => {
           entityId: SERVICE_ID,
         }),
       );
+    });
+
+    /* VAL-API-016: Operations before init return precondition error */
+    it("returns 409 when connection does not exist (no init)", async () => {
+      mockConnectionsByProjectId.clear();
+      const app = await createApp();
+
+      const res = await request(app)
+        .post(`/api/companies/${COMPANY_ID}/projects/${PROJECT_ID}/stripe-projects/services/${SERVICE_ID}/rotate`);
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toContain("Stripe project not initialized");
+      expect(mockStripeProjectsService.rotateCredentials).not.toHaveBeenCalled();
     });
 
     it("returns 403 for non-board actor", async () => {
