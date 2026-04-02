@@ -1,5 +1,6 @@
 import {
   Bot,
+  Coins,
   FolderKanban,
   Inbox,
   CircleDot,
@@ -137,6 +138,7 @@ export function Sidebar() {
 
         <SidebarSection label="Governance">
           <SidebarNavItem to="/approvals/pending" label="Compliance" icon={ShieldCheck} />
+          <SidebarNavItem to="/token-launch" label="Token Launch" icon={Coins} />
           <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
           <SidebarNavItem to="/org" label="Org" icon={Network} />
           <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
