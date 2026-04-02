@@ -700,3 +700,9 @@ export const PLUGIN_BRIDGE_ERROR_CODES = [
   "UNKNOWN",
 ] as const;
 export type PluginBridgeErrorCode = (typeof PLUGIN_BRIDGE_ERROR_CODES)[number];
+
+export const STRIPE_PROJECT_CONNECTION_STATUSES = ["active", "inactive", "error"] as const;
+export type StripeProjectConnectionStatus = (typeof STRIPE_PROJECT_CONNECTION_STATUSES)[number];
+
+export const STRIPE_PROVISIONED_SERVICE_STATUSES = ["active", "provisioning", "error", "removed"] as const;
+export type StripeProvisionedServiceStatus = (typeof STRIPE_PROVISIONED_SERVICE_STATUSES)[number];

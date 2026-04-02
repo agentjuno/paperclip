@@ -297,3 +297,18 @@ export {
   tokenLaunchConfirmRequestSchema,
   type CompanyTokenLaunchDraftUpdate,
 } from "./token-launch.js";
+
+export {
+  initStripeProjectSchema,
+  addStripeServiceSchema,
+  stripeCatalogQuerySchema,
+  stripeProjectConnectionSchema,
+  stripeProvisionedServiceSchema,
+  stripeCatalogServiceSchema,
+  stripeProjectStatusSchema,
+  stripeSyncResultSchema,
+  stripeRotateResultSchema,
+  type InitStripeProject,
+  type AddStripeService,
+  type StripeCatalogQuery,
+} from "./stripe-projects.js";

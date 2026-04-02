@@ -171,6 +171,14 @@ export type {
   CompanyPortabilityExportRequest,
 } from "./company-portability.js";
 export type {
+  StripeProjectConnection,
+  StripeProvisionedService,
+  StripeCatalogService,
+  StripeProjectStatus,
+  StripeSyncResult,
+  StripeRotateResult,
+} from "./stripe-projects.js";
+export type {
   JsonSchema,
   PluginJobDeclaration,
   PluginWebhookDeclaration,

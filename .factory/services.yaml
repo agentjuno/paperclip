@@ -1,0 +1,15 @@
+commands:
+  install: cd junoclip && pnpm install
+  typecheck: cd junoclip && pnpm typecheck
+  build: cd junoclip && pnpm build
+  test: cd junoclip && pnpm test:run
+  test-server: cd junoclip && pnpm --filter @paperclipai/server exec vitest run
+  test-cli: cd junoclip && pnpm --filter @paperclipai/cli exec vitest run
+
+services:
+  paperclip-dev:
+    start: cd junoclip && PORT=3100 pnpm dev:once
+    stop: lsof -ti :3100 | xargs kill 2>/dev/null || true
+    healthcheck: curl -sf http://localhost:3100/api/health
+    port: 3100
+    depends_on: []

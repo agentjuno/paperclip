@@ -59,3 +59,4 @@ export { pluginWebhookDeliveries } from "./plugin_webhooks.js";
 export { pluginLogs } from "./plugin_logs.js";
 export { companyTokenLaunches } from "./company_token_launches.js";
 export { companyTokenLaunchRequests } from "./company_token_launch_requests.js";
+export { stripeProjectConnections, stripeProvisionedServices } from "./stripe_projects.js";

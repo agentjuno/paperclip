@@ -136,6 +136,10 @@ export {
   type PluginEventType,
   type PluginBridgeErrorCode,
   type TokenLaunchDeployStatus,
+  STRIPE_PROJECT_CONNECTION_STATUSES,
+  STRIPE_PROVISIONED_SERVICE_STATUSES,
+  type StripeProjectConnectionStatus,
+  type StripeProvisionedServiceStatus,
 } from "./constants.js";
 
 export type {
@@ -326,6 +330,12 @@ export type {
   CompanyTokenLaunchSimulation,
   CompanyTokenLaunchRequest,
   CompanyTokenLaunch,
+  StripeProjectConnection,
+  StripeProvisionedService,
+  StripeCatalogService,
+  StripeProjectStatus,
+  StripeSyncResult,
+  StripeRotateResult,
 } from "./types/index.js";
 
 export {
@@ -563,6 +573,18 @@ export {
   tokenLaunchSubmitRequestSchema,
   tokenLaunchConfirmRequestSchema,
   type CompanyTokenLaunchDraftUpdate,
+  initStripeProjectSchema,
+  addStripeServiceSchema,
+  stripeCatalogQuerySchema,
+  stripeProjectConnectionSchema,
+  stripeProvisionedServiceSchema,
+  stripeCatalogServiceSchema,
+  stripeProjectStatusSchema,
+  stripeSyncResultSchema,
+  stripeRotateResultSchema,
+  type InitStripeProject,
+  type AddStripeService,
+  type StripeCatalogQuery,
 } from "./validators/index.js";
 
 export { API_PREFIX, API } from "./api.js";
