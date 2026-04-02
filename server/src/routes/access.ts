@@ -47,6 +47,7 @@ import {
   logActivity,
   notifyHireApproved
 } from "../services/index.js";
+import { assertPublicWebAdapterType, isHostedWebProductMode } from "../adapters/availability.js";
 import { assertCompanyAccess } from "./authz.js";
 import {
   claimBoardOwnership,
@@ -1574,6 +1575,13 @@ export function accessRoutes(
   }
 
   router.get("/board-claim/:token", async (req, res) => {
+    if (isHostedWebProductMode()) {
+      res.status(410).json({
+        error:
+          "Board claim is disabled in the hosted ZHC deployment. Sign in through the main ZHC site instead.",
+      });
+      return;
+    }
     const token = (req.params.token as string).trim();
     const code =
       typeof req.query.code === "string" ? req.query.code.trim() : undefined;
@@ -1585,6 +1593,13 @@ export function accessRoutes(
   });
 
   router.post("/board-claim/:token/claim", async (req, res) => {
+    if (isHostedWebProductMode()) {
+      res.status(410).json({
+        error:
+          "Board claim is disabled in the hosted ZHC deployment. Sign in through the main ZHC site instead.",
+      });
+      return;
+    }
     const token = (req.params.token as string).trim();
     const code =
       typeof req.body?.code === "string" ? req.body.code.trim() : undefined;
@@ -2118,17 +2133,19 @@ export function accessRoutes(
         : null;
 
       if (invite.inviteType === "bootstrap_ceo") {
-        if (inviteAlreadyAccepted) throw notFound("Invite not found");
-        if (req.body.requestType !== "human") {
-          throw badRequest("Bootstrap invite requires human request type");
-        }
-        if (
-          req.actor.type !== "board" ||
-          (!req.actor.userId && !isLocalImplicit(req))
-        ) {
-          throw unauthorized(
-            "Authenticated user required for bootstrap acceptance"
-          );
+        if (!isHostedWebProductMode()) {
+          if (inviteAlreadyAccepted) throw notFound("Invite not found");
+          if (req.body.requestType !== "human") {
+            throw badRequest("Bootstrap invite requires human request type");
+          }
+          if (
+            req.actor.type !== "board" ||
+            (!req.actor.userId && !isLocalImplicit(req))
+          ) {
+            throw unauthorized(
+              "Authenticated user required for bootstrap acceptance"
+            );
+          }
         }
         const userId = req.actor.userId ?? "local-board";
         const existingAdmin = await access.isInstanceAdmin(userId);

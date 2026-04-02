@@ -32,18 +32,11 @@ import { heartbeatService, reconcilePersistedRuntimeServicesOnStartup, routineSe
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
+import {
+  resolveCompanySessionFromHeaders,
+  resolveCompanySessionFromRequest,
+} from "./auth/company-session.js";
 import { maybePersistWorktreeRuntimePorts } from "./worktree-config.js";
-
-type BetterAuthSessionUser = {
-  id: string;
-  email?: string | null;
-  name?: string | null;
-};
-
-type BetterAuthSessionResult = {
-  session: { id: string; userId: string } | null;
-  user: BetterAuthSessionUser | null;
-};
 
 type EmbeddedPostgresInstance = {
   initialise(): Promise<void>;
@@ -451,53 +444,66 @@ export async function startServer(): Promise<StartedServer> {
   let authReady = config.deploymentMode === "local_trusted";
   let betterAuthHandler: RequestHandler | undefined;
   let resolveSession:
-    | ((req: ExpressRequest) => Promise<BetterAuthSessionResult | null>)
+    | ((req: ExpressRequest) => Promise<any | null>)
     | undefined;
   let resolveSessionFromHeaders:
-    | ((headers: Headers) => Promise<BetterAuthSessionResult | null>)
+    | ((headers: Headers) => Promise<any | null>)
     | undefined;
   if (config.deploymentMode === "local_trusted") {
     await ensureLocalTrustedBoardPrincipal(db as any);
   }
   if (config.deploymentMode === "authenticated") {
-    const {
-      createBetterAuthHandler,
-      createBetterAuthInstance,
-      deriveAuthTrustedOrigins,
-      resolveBetterAuthSession,
-      resolveBetterAuthSessionFromHeaders,
-    } = await import("./auth/better-auth.js");
-    const betterAuthSecret =
-      process.env.BETTER_AUTH_SECRET?.trim() ?? process.env.PAPERCLIP_AGENT_JWT_SECRET?.trim();
-    if (!betterAuthSecret) {
-      throw new Error(
-        "authenticated mode requires BETTER_AUTH_SECRET (or PAPERCLIP_AGENT_JWT_SECRET) to be set",
-      );
-    }
-    const derivedTrustedOrigins = deriveAuthTrustedOrigins(config);
-    const envTrustedOrigins = (process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0);
-    const effectiveTrustedOrigins = Array.from(new Set([...derivedTrustedOrigins, ...envTrustedOrigins]));
-    logger.info(
-      {
-        authBaseUrlMode: config.authBaseUrlMode,
-        authPublicBaseUrl: config.authPublicBaseUrl ?? null,
-        trustedOrigins: effectiveTrustedOrigins,
-        trustedOriginsSource: {
-          derived: derivedTrustedOrigins.length,
-          env: envTrustedOrigins.length,
+    const companySessionSecret =
+      process.env.COMPANY_SESSION_SECRET?.trim()
+      || process.env.PRIVY_SESSION_SECRET?.trim();
+
+    if (companySessionSecret) {
+      // ZHC hosted mode — use Privy company session for auth
+      logger.info("Using company session auth (COMPANY_SESSION_SECRET set)");
+      resolveSession = (req) => resolveCompanySessionFromRequest(db as any, req);
+      resolveSessionFromHeaders = (headers) => resolveCompanySessionFromHeaders(db as any, headers);
+      authReady = true;
+    } else {
+      // Standard authenticated mode — use BetterAuth
+      const {
+        createBetterAuthHandler,
+        createBetterAuthInstance,
+        deriveAuthTrustedOrigins,
+        resolveBetterAuthSession,
+        resolveBetterAuthSessionFromHeaders,
+      } = await import("./auth/better-auth.js");
+      const betterAuthSecret =
+        process.env.BETTER_AUTH_SECRET?.trim() ?? process.env.PAPERCLIP_AGENT_JWT_SECRET?.trim();
+      if (!betterAuthSecret) {
+        throw new Error(
+          "authenticated mode requires BETTER_AUTH_SECRET (or PAPERCLIP_AGENT_JWT_SECRET) to be set",
+        );
+      }
+      const derivedTrustedOrigins = deriveAuthTrustedOrigins(config);
+      const envTrustedOrigins = (process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+      const effectiveTrustedOrigins = Array.from(new Set([...derivedTrustedOrigins, ...envTrustedOrigins]));
+      logger.info(
+        {
+          authBaseUrlMode: config.authBaseUrlMode,
+          authPublicBaseUrl: config.authPublicBaseUrl ?? null,
+          trustedOrigins: effectiveTrustedOrigins,
+          trustedOriginsSource: {
+            derived: derivedTrustedOrigins.length,
+            env: envTrustedOrigins.length,
+          },
         },
-      },
-      "Authenticated mode auth origin configuration",
-    );
-    const auth = createBetterAuthInstance(db as any, config, effectiveTrustedOrigins);
-    betterAuthHandler = createBetterAuthHandler(auth);
-    resolveSession = (req) => resolveBetterAuthSession(auth, req);
-    resolveSessionFromHeaders = (headers) => resolveBetterAuthSessionFromHeaders(auth, headers);
-    await initializeBoardClaimChallenge(db as any, { deploymentMode: config.deploymentMode });
-    authReady = true;
+        "Authenticated mode auth origin configuration",
+      );
+      const auth = createBetterAuthInstance(db as any, config, effectiveTrustedOrigins);
+      betterAuthHandler = createBetterAuthHandler(auth);
+      resolveSession = (req) => resolveBetterAuthSession(auth, req);
+      resolveSessionFromHeaders = (headers) => resolveBetterAuthSessionFromHeaders(auth, headers);
+      await initializeBoardClaimChallenge(db as any, { deploymentMode: config.deploymentMode });
+      authReady = true;
+    }
   }
   
   const listenPort = await detectPort(config.port);

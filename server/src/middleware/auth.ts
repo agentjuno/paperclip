@@ -5,7 +5,6 @@ import type { Db } from "@paperclipai/db";
 import { agentApiKeys, agents, companyMemberships, instanceUserRoles } from "@paperclipai/db";
 import { verifyLocalAgentJwt } from "../agent-auth-jwt.js";
 import type { DeploymentMode } from "@paperclipai/shared";
-import type { BetterAuthSessionResult } from "../auth/better-auth.js";
 import { logger } from "./logger.js";
 import { boardAuthService } from "../services/board-auth.js";
 
@@ -13,9 +12,15 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+/** Common shape returned by both BetterAuth and company-session resolvers. */
+interface ResolvedActorSession {
+  session: { id: string; userId: string } | null;
+  user: { id: string; email?: string | null; name?: string | null } | null;
+}
+
 interface ActorMiddlewareOptions {
   deploymentMode: DeploymentMode;
-  resolveSession?: (req: Request) => Promise<BetterAuthSessionResult | null>;
+  resolveSession?: (req: Request) => Promise<ResolvedActorSession | null>;
 }
 
 export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHandler {
@@ -29,7 +34,14 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
 
     req.actor =
       opts.deploymentMode === "local_trusted"
-        ? { type: "board", userId: "local-board", isInstanceAdmin: true, source: "local_implicit" }
+        ? {
+          type: "board",
+          userId: "local-board",
+          userEmail: "local@paperclip.local",
+          userName: "Local Board",
+          isInstanceAdmin: true,
+          source: "local_implicit",
+        }
         : { type: "none", source: "none" };
 
     const runIdHeader = req.header("x-paperclip-run-id");
@@ -37,7 +49,7 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
     const authHeader = req.header("authorization");
     if (!authHeader?.toLowerCase().startsWith("bearer ")) {
       if (opts.deploymentMode === "authenticated" && opts.resolveSession) {
-        let session: BetterAuthSessionResult | null = null;
+        let session: ResolvedActorSession | null = null;
         try {
           session = await opts.resolveSession(req);
         } catch (err) {
@@ -68,6 +80,8 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
           req.actor = {
             type: "board",
             userId,
+            userEmail: session.user.email ?? null,
+            userName: session.user.name ?? null,
             companyIds: memberships.map((row) => row.companyId),
             isInstanceAdmin: Boolean(roleRow),
             runId: runIdHeader ?? undefined,

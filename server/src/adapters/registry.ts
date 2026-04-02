@@ -1,5 +1,6 @@
 import type { ServerAdapterModule } from "./types.js";
 import { getAdapterSessionManagement } from "@paperclipai/adapter-utils";
+import { isHostedWebProductMode, isPublicWebAdapterType, getPublicWebAdapterError } from "./availability.js";
 import {
   execute as claudeExecute,
   listClaudeSkills,
@@ -207,20 +208,45 @@ const claudePlatformAdapter: ServerAdapterModule = {
   getQuotaWindows: claudePlatformGetQuotaWindows,
 };
 
+function createDisabledAdapter(type: string): ServerAdapterModule {
+  const summary = getPublicWebAdapterError(type);
+
+  return {
+    type,
+    execute: async () => {
+      throw new Error(summary);
+    },
+    testEnvironment: async () => ({
+      ready: false,
+      summary,
+    }),
+    models: [],
+    supportsLocalAgentJwt: false,
+    agentConfigurationDoc: undefined,
+  };
+}
+
+const allAdapters: ServerAdapterModule[] = [
+  claudeLocalAdapter,
+  codexLocalAdapter,
+  openCodeLocalAdapter,
+  piLocalAdapter,
+  cursorLocalAdapter,
+  geminiLocalAdapter,
+  openclawGatewayAdapter,
+  hermesLocalAdapter,
+  claudePlatformAdapter,
+  processAdapter,
+  httpAdapter,
+];
+
 const adaptersByType = new Map<string, ServerAdapterModule>(
-  [
-    claudeLocalAdapter,
-    codexLocalAdapter,
-    openCodeLocalAdapter,
-    piLocalAdapter,
-    cursorLocalAdapter,
-    geminiLocalAdapter,
-    openclawGatewayAdapter,
-    hermesLocalAdapter,
-    claudePlatformAdapter,
-    processAdapter,
-    httpAdapter,
-  ].map((a) => [a.type, a]),
+  allAdapters.map((a) => {
+    if (isHostedWebProductMode() && !isPublicWebAdapterType(a.type)) {
+      return [a.type, createDisabledAdapter(a.type)];
+    }
+    return [a.type, a];
+  }),
 );
 
 export function getServerAdapter(type: string): ServerAdapterModule {
