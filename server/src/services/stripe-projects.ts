@@ -189,10 +189,14 @@ export function stripeProjectsService(
         throw notFound("Stripe project connection not found");
       }
 
+      const statusCliOptions = connection.stripeProjectDir
+        ? { ...cliOptions, cwd: connection.stripeProjectDir }
+        : cliOptions;
+
       const cliResult = (await execStripeProjectsCmd(
         "status",
         [],
-        cliOptions,
+        statusCliOptions,
       )) as Record<string, unknown>;
 
       return {

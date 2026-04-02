@@ -117,7 +117,7 @@ function buildErrorMessage(code: StripeProjectsCliErrorCode, stderr: string): st
 type SpawnFn = (
   command: string,
   args: string[],
-  options: { shell: boolean; stdio: ["ignore", "pipe", "pipe"] },
+  options: { shell: boolean; stdio: ["ignore", "pipe", "pipe"]; cwd?: string },
 ) => ChildProcess;
 
 type LogFn = (...args: unknown[]) => void;
@@ -129,6 +129,8 @@ export interface ExecStripeProjectsCmdOptions {
   timeoutMs?: number;
   /** Logger function for diagnostic output */
   log?: LogFn;
+  /** Working directory for the CLI process */
+  cwd?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -150,10 +152,15 @@ export async function execStripeProjectsCmd(
 
   log(redactCredentials(`Executing: stripe ${fullArgs.join(" ")}`));
 
-  const child = spawnFn("stripe", fullArgs, {
+  const spawnOpts: { shell: boolean; stdio: ["ignore", "pipe", "pipe"]; cwd?: string } = {
     shell: true,
     stdio: ["ignore", "pipe", "pipe"],
-  });
+  };
+  if (options?.cwd) {
+    spawnOpts.cwd = options.cwd;
+  }
+
+  const child = spawnFn("stripe", fullArgs, spawnOpts);
 
   return new Promise<unknown>((resolve, reject) => {
     let stdoutChunks: Buffer[] = [];

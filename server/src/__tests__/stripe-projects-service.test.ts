@@ -595,6 +595,166 @@ describe("stripeProjectsService", () => {
 
       expect(result.services).toEqual([]);
     });
+
+    /* Connection-scoped cwd: status passes connection's stripeProjectDir as cwd */
+    it("passes connection stripeProjectDir as cwd to CLI wrapper", async () => {
+      const statusData = { status: "active", services: [] };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(statusData),
+      });
+
+      const connectionRow = {
+        id: "conn-1",
+        companyId: "c-1",
+        projectId: "p-1",
+        stripeProjectName: "my-project",
+        stripeProjectDir: "/home/user/.projects/proj-alpha",
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionRow]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+      await svc.status("conn-1");
+
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, , spawnOpts] = spawnFn.mock.calls[0];
+      expect(spawnOpts.cwd).toBe("/home/user/.projects/proj-alpha");
+    });
+
+    /* Two connections return their own respective status (isolation test) */
+    it("two connections return different status results isolated by cwd", async () => {
+      // Track which cwd each spawn call received so we can return different data
+      const spawnFn = vi.fn((_cmd: string, _args: string[], opts: any) => {
+        const fake = createFakeProc();
+        const cwd = opts?.cwd;
+        setImmediate(() => {
+          if (cwd === "/projects/alpha") {
+            fake.emitStdout(JSON.stringify({
+              status: "active",
+              services: [{ id: "svc-a", provider: "vercel", serviceType: "project", status: "active" }],
+            }));
+          } else if (cwd === "/projects/beta") {
+            fake.emitStdout(JSON.stringify({
+              status: "paused",
+              services: [
+                { id: "svc-b1", provider: "supabase", serviceType: "postgres", status: "active" },
+                { id: "svc-b2", provider: "neon", serviceType: "database", status: "provisioning" },
+              ],
+            }));
+          } else {
+            fake.emitStdout(JSON.stringify({ status: "unknown", services: [] }));
+          }
+          fake.emitClose(0);
+        });
+        return fake.proc;
+      });
+
+      const connectionAlpha = {
+        id: "conn-alpha",
+        companyId: "c-1",
+        projectId: "p-1",
+        stripeProjectName: "alpha-project",
+        stripeProjectDir: "/projects/alpha",
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const connectionBeta = {
+        id: "conn-beta",
+        companyId: "c-2",
+        projectId: "p-2",
+        stripeProjectName: "beta-project",
+        stripeProjectDir: "/projects/beta",
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Mock DB that returns the correct connection based on the where clause argument
+      let selectCallCount = 0;
+      const connections = [connectionAlpha, connectionBeta];
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => {
+                const conn = connections[selectCallCount++];
+                return Promise.resolve([conn]).then(resolve);
+              },
+            }),
+          }),
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+
+      const statusAlpha = await svc.status("conn-alpha");
+      const statusBeta = await svc.status("conn-beta");
+
+      // Verify isolation: each connection returns its own status
+      expect(statusAlpha.name).toBe("alpha-project");
+      expect(statusAlpha.status).toBe("active");
+      expect(statusAlpha.services).toHaveLength(1);
+
+      expect(statusBeta.name).toBe("beta-project");
+      expect(statusBeta.status).toBe("paused");
+      expect(statusBeta.services).toHaveLength(2);
+
+      // Verify each spawn call was made with the correct cwd
+      expect(spawnFn).toHaveBeenCalledTimes(2);
+      const [, , optsAlpha] = spawnFn.mock.calls[0];
+      const [, , optsBeta] = spawnFn.mock.calls[1];
+      expect(optsAlpha.cwd).toBe("/projects/alpha");
+      expect(optsBeta.cwd).toBe("/projects/beta");
+    });
+
+    /* When stripeProjectDir is null, cwd is not set */
+    it("does not pass cwd when connection has no stripeProjectDir", async () => {
+      const statusData = { status: "active", services: [] };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(statusData),
+      });
+
+      const connectionRow = {
+        id: "conn-1",
+        companyId: "c-1",
+        projectId: "p-1",
+        stripeProjectName: "my-project",
+        stripeProjectDir: null,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionRow]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+      await svc.status("conn-1");
+
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, , spawnOpts] = spawnFn.mock.calls[0];
+      expect(spawnOpts.cwd).toBeUndefined();
+    });
   });
 
   /* ================================================================ */
