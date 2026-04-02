@@ -31,34 +31,17 @@ function RemoveServiceDialog({
   open,
   onOpenChange,
   service,
-  companyId,
-  projectId,
+  onConfirm,
+  isPending,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   service: StripeProvisionedService | null;
-  companyId: string;
-  projectId: string;
+  onConfirm: (serviceId: string) => void;
+  isPending: boolean;
 }) {
-  const queryClient = useQueryClient();
-  const { pushToast } = useToast();
-
-  const removeMutation = useMutation({
-    mutationFn: (serviceId: string) =>
-      stripeProjectsApi.removeService(companyId, projectId, serviceId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.stripeProjects.services(companyId, projectId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.stripeProjects.status(companyId, projectId) });
-      pushToast({ title: "Service removed", tone: "success" });
-      onOpenChange(false);
-    },
-    onError: (err: Error) => {
-      pushToast({ title: "Failed to remove service", body: err.message, tone: "error" });
-    },
-  });
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next && !isPending) onOpenChange(false); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Remove Service</DialogTitle>
@@ -69,19 +52,19 @@ function RemoveServiceDialog({
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" disabled={isPending}>
               Cancel
             </Button>
           </DialogClose>
           <Button
             variant="destructive"
             size="sm"
-            disabled={removeMutation.isPending}
+            disabled={isPending}
             onClick={() => {
-              if (service) removeMutation.mutate(service.id);
+              if (service) onConfirm(service.id);
             }}
           >
-            {removeMutation.isPending && <Loader2 className="animate-spin" />}
+            {isPending && <Loader2 className="animate-spin" />}
             Remove
           </Button>
         </DialogFooter>
@@ -97,11 +80,13 @@ function ServiceRow({
   onRemove,
   onRotate,
   isRotating: isRotatingProp,
+  isRemoving: isRemovingProp,
 }: {
   service: StripeProvisionedService;
   onRemove: () => void;
   onRotate: () => void;
   isRotating: boolean;
+  isRemoving: boolean;
 }) {
   return (
     <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
@@ -132,8 +117,9 @@ function ServiceRow({
           size="icon-xs"
           title="Remove service"
           onClick={onRemove}
+          disabled={isRemovingProp}
         >
-          <Trash2 />
+          {isRemovingProp ? <Loader2 className="animate-spin" /> : <Trash2 />}
         </Button>
       </div>
     </div>
@@ -176,6 +162,20 @@ export function InfrastructureTab({
     },
     onError: (err: Error) => {
       pushToast({ title: "Failed to sync credentials", body: err.message, tone: "error" });
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (serviceId: string) =>
+      stripeProjectsApi.removeService(companyId, projectId, serviceId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.stripeProjects.services(companyId, projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.stripeProjects.status(companyId, projectId) });
+      pushToast({ title: "Service removed", tone: "success" });
+      setRemoveTarget(null);
+    },
+    onError: (err: Error) => {
+      pushToast({ title: "Failed to remove service", body: err.message, tone: "error" });
     },
   });
 
@@ -265,6 +265,7 @@ export function InfrastructureTab({
               onRemove={() => setRemoveTarget(service)}
               onRotate={() => handleRotate(service.id)}
               isRotating={rotatingServiceId === service.id && rotateMutation.isPending}
+              isRemoving={removeTarget?.id === service.id && removeMutation.isPending}
             />
           ))}
         </div>
@@ -280,11 +281,11 @@ export function InfrastructureTab({
       <RemoveServiceDialog
         open={!!removeTarget}
         onOpenChange={(open) => {
-          if (!open) setRemoveTarget(null);
+          if (!open && !removeMutation.isPending) setRemoveTarget(null);
         }}
         service={removeTarget}
-        companyId={companyId}
-        projectId={projectId}
+        onConfirm={(serviceId: string) => removeMutation.mutate(serviceId)}
+        isPending={removeMutation.isPending}
       />
     </div>
   );

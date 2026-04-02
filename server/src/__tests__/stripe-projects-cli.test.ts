@@ -279,7 +279,7 @@ describe("execStripeProjectsCmd", () => {
   it("redacts credential patterns in log output", async () => {
     const logSpy = vi.fn();
     const spawnFn = makeSpawnFn({
-      stdout: JSON.stringify({ database_url: "postgres://user:pass@host/db" }),
+      stdout: JSON.stringify({ database_url: "postgres://testuser:testpass@testhost/testdb" }),
     });
 
     const result = await execStripeProjectsCmd("env", [], {
@@ -288,12 +288,12 @@ describe("execStripeProjectsCmd", () => {
     });
 
     // Result should still have the raw value (redaction is only for logs)
-    expect(result).toEqual({ database_url: "postgres://user:pass@host/db" });
+    expect(result).toEqual({ database_url: "postgres://testuser:testpass@testhost/testdb" });
 
     // No raw postgres connection strings should appear in log calls
     for (const call of logSpy.mock.calls) {
       const logStr = JSON.stringify(call);
-      expect(logStr).not.toContain("postgres://user:pass@host/db");
+      expect(logStr).not.toContain("postgres://testuser:testpass@testhost/testdb");
     }
   });
 
