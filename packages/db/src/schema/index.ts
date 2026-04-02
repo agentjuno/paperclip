@@ -7,6 +7,7 @@ export { agents } from "./agents.js";
 export { boardApiKeys } from "./board_api_keys.js";
 export { cliAuthChallenges } from "./cli_auth_challenges.js";
 export { companyMemberships } from "./company_memberships.js";
+export { userWalletLinks } from "./user_wallet_links.js";
 export { principalPermissionGrants } from "./principal_permission_grants.js";
 export { invites } from "./invites.js";
 export { joinRequests } from "./join_requests.js";
