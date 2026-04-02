@@ -1269,8 +1269,8 @@ describe("stripeProjectsService", () => {
       const [, args] = spawnFn.mock.calls[0];
       expect(args).toContain("vercel/project");
 
-      // DB row should have been deleted
-      expect(deleteSpy).toHaveBeenCalledOnce();
+      // DB row should have been deleted + associated credentials cleaned up
+      expect(deleteSpy).toHaveBeenCalledTimes(2);
     });
 
     /* VAL-SVC-013: removeService throws for non-existent service (no CLI call) */

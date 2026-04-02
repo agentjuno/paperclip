@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { stripeProjectConnections, stripeProvisionedServices } from "@paperclipai/db";
+import { companySecrets, stripeProjectConnections, stripeProvisionedServices } from "@paperclipai/db";
 import type {
   StripeProjectConnection,
   StripeCatalogService,
@@ -336,6 +336,21 @@ export function stripeProjectsService(
       await db
         .delete(stripeProvisionedServices)
         .where(eq(stripeProvisionedServices.id, serviceId));
+
+      // Clean up associated credentials from company_secrets.
+      // Credentials synced from this provider use a PROVIDER_ name prefix
+      // (e.g., NEON_API_KEY, NEON_SECRET for the "neon" provider).
+      if (connection) {
+        const prefix = `${service.provider.toUpperCase()}_%`;
+        await db
+          .delete(companySecrets)
+          .where(
+            and(
+              eq(companySecrets.companyId, connection.companyId),
+              like(companySecrets.name, prefix),
+            ),
+          );
+      }
     },
 
     /**

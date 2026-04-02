@@ -397,7 +397,7 @@ describeEmbeddedPostgres("Stripe Projects Integration — Cross-Area API Flows (
       expect(syncRes.status).toBe(200);
       expect(syncRes.body.secretsCount).toBeGreaterThan(0);
 
-      // Record old credential values from real DB
+      // Record old credential values from real DB (versions + value hashes)
       const { eq } = await import("drizzle-orm");
       const oldDbSecrets = await db
         .select()
@@ -408,6 +408,23 @@ describeEmbeddedPostgres("Stripe Projects Integration — Cross-Area API Flows (
         oldCredentials.set(secret.name, secret.latestVersion);
       }
       expect(oldCredentials.size).toBeGreaterThan(0);
+
+      // Capture pre-rotation value hashes from companySecretVersions
+      const preRotationVersions = await db
+        .select()
+        .from(companySecretVersions)
+        .where(
+          (await import("drizzle-orm")).inArray(
+            companySecretVersions.secretId,
+            oldDbSecrets.map((s) => s.id),
+          ),
+        );
+      const preRotationHashes = new Map<string, string>();
+      for (const v of preRotationVersions) {
+        // Store hash keyed by secretId for comparison after rotation
+        preRotationHashes.set(v.secretId, v.valueSha256);
+      }
+      expect(preRotationHashes.size).toBeGreaterThan(0);
 
       // Step 3: Rotate credentials
       const rotateRes = await request(app)
@@ -426,6 +443,27 @@ describeEmbeddedPostgres("Stripe Projects Integration — Cross-Area API Flows (
         const oldVersion = oldCredentials.get(secret.name);
         expect(oldVersion).toBeDefined();
         expect(secret.latestVersion).toBeGreaterThan(oldVersion!);
+      }
+
+      // Step 5: Verify rotated credential VALUES differ from pre-rotation values
+      const postRotationVersions = await db
+        .select()
+        .from(companySecretVersions)
+        .where(
+          (await import("drizzle-orm")).inArray(
+            companySecretVersions.secretId,
+            newDbSecrets.map((s) => s.id),
+          ),
+        );
+      // Group versions by secretId — the latest version's hash should differ from the original
+      for (const secret of newDbSecrets) {
+        const versions = postRotationVersions
+          .filter((v) => v.secretId === secret.id)
+          .sort((a, b) => a.version - b.version);
+        expect(versions.length).toBeGreaterThanOrEqual(2); // at least original + rotated
+        const originalHash = preRotationHashes.get(secret.id);
+        const latestHash = versions[versions.length - 1].valueSha256;
+        expect(latestHash).not.toBe(originalHash);
       }
     });
   });
@@ -491,6 +529,18 @@ describeEmbeddedPostgres("Stripe Projects Integration — Cross-Area API Flows (
         .from(stripeProvisionedServices)
         .where(eq(stripeProvisionedServices.id, serviceId));
       expect(remainingServices).toHaveLength(0);
+
+      // Step 6: Verify credentials associated with the removed service are cleaned from company_secrets
+      const postRemovalSecrets = await db
+        .select()
+        .from(companySecrets)
+        .where(
+          and(
+            eq(companySecrets.companyId, COMPANY_A),
+            like(companySecrets.name, "NEON_%"),
+          ),
+        );
+      expect(postRemovalSecrets).toHaveLength(0);
     });
   });
 
