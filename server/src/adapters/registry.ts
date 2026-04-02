@@ -217,8 +217,10 @@ function createDisabledAdapter(type: string): ServerAdapterModule {
       throw new Error(summary);
     },
     testEnvironment: async () => ({
-      ready: false,
-      summary,
+      adapterType: type,
+      status: "fail" as const,
+      checks: [{ code: "disabled", level: "error" as const, message: summary }],
+      testedAt: new Date().toISOString(),
     }),
     models: [],
     supportsLocalAgentJwt: false,
