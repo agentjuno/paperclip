@@ -35,6 +35,9 @@ export const AGENT_ADAPTER_TYPES = [
 ] as const;
 export type AgentAdapterType = (typeof AGENT_ADAPTER_TYPES)[number];
 
+export const PUBLIC_WEB_AGENT_ADAPTER_TYPES = ["http", "openclaw_gateway"] as const;
+export type PublicWebAgentAdapterType = (typeof PUBLIC_WEB_AGENT_ADAPTER_TYPES)[number];
+
 export const AGENT_ROLES = [
   "ceo",
   "cto",
