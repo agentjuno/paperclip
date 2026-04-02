@@ -65,6 +65,7 @@ curl -sS "$PAPERCLIP_API_URL/llms/agent-icons.txt" \
 - adapter and runtime config aligned to this environment
 - capabilities
 - run prompt in adapter config (`promptTemplate` where applicable)
+- instructions bundle defaults: for supported local adapters, prefer the managed bundle path and let Paperclip materialize `AGENTS.md`, `HEARTBEAT.md`, `SOUL.md`, and `TOOLS.md`. If you supply `promptTemplate`, treat it as the `AGENTS.md` content and verify the other three files still exist after create.
 - source issue linkage (`sourceIssueId` or `sourceIssueIds`) when this hire came from an issue
 
 7. Submit hire request.
@@ -88,7 +89,23 @@ curl -sS -X POST "$PAPERCLIP_API_URL/api/companies/$PAPERCLIP_COMPANY_ID/agent-h
   }'
 ```
 
-8. Handle governance state:
+8. Run a lightweight post-hire QA pass before the first assignment.
+
+```sh
+curl -sS "$PAPERCLIP_API_URL/api/agents/<agent-id>/configuration" \
+  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
+
+curl -sS "$PAPERCLIP_API_URL/api/agents/<agent-id>/instructions-bundle" \
+  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
+```
+
+Check:
+- managed bundle fields exist in adapter config (`instructionsBundleMode`, `instructionsRootPath`, `instructionsEntryFile`, `instructionsFilePath`)
+- bundle contains `AGENTS.md`, `HEARTBEAT.md`, `SOUL.md`, and `TOOLS.md`
+- reporting line, workspace, and heartbeat policy match the hire request
+- enabled skills and tool notes match the intended role
+
+9. Handle governance state:
 - if response has `approval`, hire is `pending_approval`
 - monitor and discuss on approval thread
 - when the board approves, you will be woken with `PAPERCLIP_APPROVAL_ID`; read linked issues and close/comment follow-up
@@ -132,10 +149,12 @@ Before sending a hire request:
 
 - if the role needs skills, make sure they already exist in the company library or install them first using the Paperclip company-skills workflow
 - Reuse proven config patterns from related agents where possible.
+- For managed-bundle adapters, make sure the hire will launch with `AGENTS.md`, `HEARTBEAT.md`, `SOUL.md`, and `TOOLS.md`. A custom `promptTemplate` should replace `AGENTS.md`, not suppress the other files.
 - Set a concrete `icon` from `/llms/agent-icons.txt` so the new hire is identifiable in org and task views.
 - Avoid secrets in plain text unless required by adapter behavior.
 - Ensure reporting line is correct and in-company.
 - Ensure prompt is role-specific and operationally scoped.
+- Run the post-hire QA pass before the agent receives real work.
 - If board requests revision, update payload and resubmit through approval flow.
 
 For endpoint payload shapes and full examples, read:

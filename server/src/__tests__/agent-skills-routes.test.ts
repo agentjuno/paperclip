@@ -312,7 +312,7 @@ describe("agent skill routes", () => {
     );
   });
 
-  it("materializes a managed AGENTS.md for directly created local agents", async () => {
+  it("materializes a managed instruction bundle for directly created local agents", async () => {
     const res = await request(createApp())
       .post("/api/companies/company-1/agents")
       .send({
@@ -330,7 +330,12 @@ describe("agent skill routes", () => {
         id: "11111111-1111-4111-8111-111111111111",
         adapterType: "claude_local",
       }),
-      { "AGENTS.md": "You are QA." },
+      expect.objectContaining({
+        "AGENTS.md": "You are QA.",
+        "HEARTBEAT.md": expect.stringContaining("Default Heartbeat Checklist"),
+        "SOUL.md": expect.stringContaining("Default Agent Posture"),
+        "TOOLS.md": expect.stringContaining("Default Tool Guidance"),
+      }),
       { entryFile: "AGENTS.md", replaceExisting: false },
     );
     expect(mockAgentService.update).toHaveBeenCalledWith(
@@ -396,6 +401,9 @@ describe("agent skill routes", () => {
       }),
       expect.objectContaining({
         "AGENTS.md": expect.stringContaining("Keep the work moving until it's done."),
+        "HEARTBEAT.md": expect.stringContaining("Default Heartbeat Checklist"),
+        "SOUL.md": expect.stringContaining("Default Agent Posture"),
+        "TOOLS.md": expect.stringContaining("Default Tool Guidance"),
       }),
       { entryFile: "AGENTS.md", replaceExisting: false },
     );
@@ -442,6 +450,19 @@ describe("agent skill routes", () => {
       });
 
     expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(mockAgentInstructionsService.materializeManagedBundle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "11111111-1111-4111-8111-111111111111",
+        adapterType: "claude_local",
+      }),
+      expect.objectContaining({
+        "AGENTS.md": "You are QA.",
+        "HEARTBEAT.md": expect.stringContaining("Default Heartbeat Checklist"),
+        "SOUL.md": expect.stringContaining("Default Agent Posture"),
+        "TOOLS.md": expect.stringContaining("Default Tool Guidance"),
+      }),
+      { entryFile: "AGENTS.md", replaceExisting: false },
+    );
     expect(mockApprovalService.create).toHaveBeenCalledWith(
       "company-1",
       expect.objectContaining({
