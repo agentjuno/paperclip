@@ -1,0 +1,59 @@
+{
+  "milestone": "cli",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 9,
+    "passed": 2,
+    "failed": 7,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-CLI-007",
+    "VAL-CLI-008"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-CLI-001",
+      "reason": "Catalog and category-filtered catalog commands both returned API 404 route-not-found errors."
+    },
+    {
+      "id": "VAL-CLI-002",
+      "reason": "Init command returned API 404 route-not-found error instead of success confirmation."
+    },
+    {
+      "id": "VAL-CLI-003",
+      "reason": "Status command returned API 404 route-not-found error instead of status output."
+    },
+    {
+      "id": "VAL-CLI-004",
+      "reason": "Add command returned API 404 route-not-found error instead of provisioning confirmation."
+    },
+    {
+      "id": "VAL-CLI-005",
+      "reason": "Sync command returned API 404 route-not-found error instead of credential sync summary."
+    },
+    {
+      "id": "VAL-CLI-006",
+      "reason": "Remove command returned API 404 route-not-found error instead of removal confirmation."
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "reason": "Full CLI flow catalog->init->add->status->sync failed because every command exited with API 404 route-not-found errors."
+    }
+  ],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Added tuistory concurrency/guidance section for CLI-surface validation isolation and evidence expectations.",
+      "source": "setup"
+    },
+    {
+      "target": "user-testing.md",
+      "description": "Recorded CLI validation blockers: subagent permission failure and Stripe Projects API route 404 behavior on localhost:3100.",
+      "source": "flow-report"
+    }
+  ],
+  "previousRound": null
+}

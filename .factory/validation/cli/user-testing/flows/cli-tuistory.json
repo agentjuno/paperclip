@@ -1,0 +1,89 @@
+{
+  "surface": "tuistory",
+  "assertionsTested": [
+    {
+      "id": "VAL-CLI-001",
+      "status": "fail",
+      "reason": "Both `stripe-projects catalog` and `stripe-projects catalog --category hosting` exited 1 with `API error 404: API route not found`, so no service list/filter behavior was observed.",
+      "evidence": [
+        "/Users/ozzy/.factory/missions/154b1791-0abd-4086-bf18-ed7796a91a50/evidence/cli/cli-flows/VAL-CLI-001-catalog.txt",
+        "/Users/ozzy/.factory/missions/154b1791-0abd-4086-bf18-ed7796a91a50/evidence/cli/cli-flows/VAL-CLI-001-catalog-category.txt"
+      ]
+    },
+    {
+      "id": "VAL-CLI-002",
+      "status": "fail",
+      "reason": "`stripe-projects init` exited 1 with `API error 404: API route not found`; no init success confirmation was produced.",
+      "evidence": [
+        "/Users/ozzy/.factory/missions/154b1791-0abd-4086-bf18-ed7796a91a50/evidence/cli/cli-flows/VAL-CLI-002-init.txt"
+      ]
+    },
+    {
+      "id": "VAL-CLI-003",
+      "status": "fail",
+      "reason": "`stripe-projects status` exited 1 with `API error 404: API route not found`; expected status output was not available.",
+      "evidence": [
+        "/Users/ozzy/.factory/missions/154b1791-0abd-4086-bf18-ed7796a91a50/evidence/cli/cli-flows/VAL-CLI-003-status.txt"
+      ]
+    },
+    {
+      "id": "VAL-CLI-004",
+      "status": "fail",
+      "reason": "`stripe-projects add vercel/project` exited 1 with `API error 404: API route not found`; no provisioning confirmation was produced.",
+      "evidence": [
+        "/Users/ozzy/.factory/missions/154b1791-0abd-4086-bf18-ed7796a91a50/evidence/cli/cli-flows/VAL-CLI-004-add.txt"
+      ]
+    },
+    {
+      "id": "VAL-CLI-005",
+      "status": "fail",
+      "reason": "`stripe-projects sync` exited 1 with `API error 404: API route not found`; no credential sync summary was produced.",
+      "evidence": [
+        "/Users/ozzy/.factory/missions/154b1791-0abd-4086-bf18-ed7796a91a50/evidence/cli/cli-flows/VAL-CLI-005-sync.txt"
+      ]
+    },
+    {
+      "id": "VAL-CLI-006",
+      "status": "fail",
+      "reason": "`stripe-projects remove <service-id>` exited 1 with `API error 404: API route not found`; no successful removal confirmation path was observable.",
+      "evidence": [
+        "/Users/ozzy/.factory/missions/154b1791-0abd-4086-bf18-ed7796a91a50/evidence/cli/cli-flows/VAL-CLI-006-remove.txt"
+      ]
+    },
+    {
+      "id": "VAL-CLI-007",
+      "status": "pass",
+      "reason": "Error handling surfaced clear, colored user-facing messages for both invalid input (`Company ID is required...`) and API error (`API error 404: API route not found`) without stack traces.",
+      "evidence": [
+        "/Users/ozzy/.factory/missions/154b1791-0abd-4086-bf18-ed7796a91a50/evidence/cli/cli-flows/VAL-CLI-007-error-missing-company.txt",
+        "/Users/ozzy/.factory/missions/154b1791-0abd-4086-bf18-ed7796a91a50/evidence/cli/cli-flows/VAL-CLI-001-catalog.txt"
+      ]
+    },
+    {
+      "id": "VAL-CLI-008",
+      "status": "pass",
+      "reason": "Against an unreachable server (`--api-base http://127.0.0.1:3199`), CLI returned a friendly `Could not reach the Paperclip API` message with diagnostics and remediation steps, and no stack trace.",
+      "evidence": [
+        "/Users/ozzy/.factory/missions/154b1791-0abd-4086-bf18-ed7796a91a50/evidence/cli/cli-flows/VAL-CLI-008-server-unreachable.txt"
+      ]
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "status": "fail",
+      "reason": "Full CLI flow `catalog -> init -> add -> status -> sync` failed end-to-end with exit code 1 for every command due `API error 404: API route not found`; expected all exit 0 was not met.",
+      "evidence": [
+        "/Users/ozzy/.factory/missions/154b1791-0abd-4086-bf18-ed7796a91a50/evidence/cli/cli-flows/VAL-CROSS-003-flow.txt"
+      ]
+    }
+  ],
+  "toolsUsed": [
+    "tuistory-surface-via-terminal-cli"
+  ],
+  "frictions": [
+    "Task subagent `user-testing-flow-validator` could not be used in this worker session due `insufficient permission to proceed` errors; assertions were executed directly in the parent worker terminal surface."
+  ],
+  "blockers": [
+    "Local Paperclip API on :3100 responds with 404 for all Stripe Projects endpoints required by cli assertions."
+  ],
+  "summary": "CLI user testing executed against localhost:3100. 2 assertions passed (error handling paths) and 7 assertions failed due missing Stripe Projects API routes."
+}
