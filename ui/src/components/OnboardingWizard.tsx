@@ -28,6 +28,8 @@ import { parseOnboardingGoalInput } from "../lib/onboarding-goal";
 import {
   buildOnboardingIssuePayload,
   buildOnboardingProjectPayload,
+  buildOnboardingTaskDescription,
+  DEFAULT_TASK_DESCRIPTION,
   selectDefaultCompanyGoalId
 } from "../lib/onboarding-launch";
 import {
@@ -44,6 +46,7 @@ import {
   Bot,
   Code,
   Gem,
+  Globe,
   ListTodo,
   Rocket,
   ArrowLeft,
@@ -70,12 +73,6 @@ type AdapterType =
   | "cursor"
   | "http"
   | "openclaw_gateway";
-
-const DEFAULT_TASK_DESCRIPTION = `You are the CEO. You set the direction for the company.
-
-- hire a founding engineer
-- write a hiring plan
-- break the roadmap into concrete tasks and start delegating work`;
 
 export function OnboardingWizard() {
   const { onboardingOpen, onboardingOptions, closeOnboarding } = useDialog();
@@ -112,6 +109,8 @@ export function OnboardingWizard() {
   // Step 1
   const [companyName, setCompanyName] = useState("");
   const [companyGoal, setCompanyGoal] = useState("");
+  const [buildOnExisting, setBuildOnExisting] = useState(false);
+  const [existingBusinessUrl, setExistingBusinessUrl] = useState("");
 
   // Step 2
   const [agentName, setAgentName] = useState("CEO");
@@ -290,6 +289,8 @@ export function OnboardingWizard() {
     setError(null);
     setCompanyName("");
     setCompanyGoal("");
+    setBuildOnExisting(false);
+    setExistingBusinessUrl("");
     setAgentName("CEO");
     setAdapterType("claude_local");
     setModel("");
@@ -409,6 +410,23 @@ export function OnboardingWizard() {
         });
       } else {
         setCreatedCompanyGoalId(null);
+      }
+
+      const trimmedUrl = existingBusinessUrl.trim();
+      if (buildOnExisting && trimmedUrl) {
+        let domain: string;
+        try {
+          domain = new URL(trimmedUrl).hostname.replace(/^www\./, "");
+        } catch {
+          domain = trimmedUrl;
+        }
+        setTaskTitle(`Research and build on ${domain}`);
+        setTaskDescription(
+          buildOnboardingTaskDescription({ buildOnExisting: true, existingBusinessUrl: trimmedUrl })
+        );
+      } else {
+        setTaskTitle("Hire your first engineer and create a hiring plan");
+        setTaskDescription(DEFAULT_TASK_DESCRIPTION);
       }
 
       setStep(2);
@@ -726,6 +744,52 @@ export function OnboardingWizard() {
                       onChange={(e) => setCompanyGoal(e.target.value)}
                     />
                   </div>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex items-center gap-2.5 w-full rounded-md border px-3 py-2.5 text-sm transition-colors text-left",
+                      buildOnExisting
+                        ? "border-foreground bg-accent"
+                        : "border-border hover:bg-accent/50"
+                    )}
+                    onClick={() => setBuildOnExisting((prev) => !prev)}
+                  >
+                    <div
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors",
+                        buildOnExisting
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-muted-foreground/40"
+                      )}
+                    >
+                      {buildOnExisting && <Check className="h-3 w-3" />}
+                    </div>
+                    <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span>Build on top of an existing business</span>
+                  </button>
+                  {buildOnExisting && (
+                    <div className="group">
+                      <label
+                        className={cn(
+                          "text-xs mb-1 block transition-colors",
+                          existingBusinessUrl.trim()
+                            ? "text-foreground"
+                            : "text-muted-foreground group-focus-within:text-foreground"
+                        )}
+                      >
+                        Existing business URL
+                      </label>
+                      <div className="relative">
+                        <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
+                        <input
+                          className="w-full rounded-md border border-border bg-transparent pl-8 pr-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+                          placeholder="https://example.com"
+                          value={existingBusinessUrl}
+                          onChange={(e) => setExistingBusinessUrl(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

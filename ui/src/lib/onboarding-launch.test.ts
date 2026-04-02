@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildOnboardingIssuePayload,
   buildOnboardingProjectPayload,
+  buildOnboardingTaskDescription,
+  DEFAULT_TASK_DESCRIPTION,
   selectDefaultCompanyGoalId,
 } from "./onboarding-launch";
 
@@ -127,5 +129,45 @@ describe("onboarding launch payloads", () => {
       projectId: "project-1",
       status: "todo",
     });
+  });
+});
+
+describe("buildOnboardingTaskDescription", () => {
+  it("returns default description when buildOnExisting is false", () => {
+    expect(
+      buildOnboardingTaskDescription({
+        buildOnExisting: false,
+        existingBusinessUrl: "https://example.com",
+      }),
+    ).toBe(DEFAULT_TASK_DESCRIPTION);
+  });
+
+  it("returns default description when buildOnExisting is true but URL is empty", () => {
+    expect(
+      buildOnboardingTaskDescription({
+        buildOnExisting: true,
+        existingBusinessUrl: "",
+      }),
+    ).toBe(DEFAULT_TASK_DESCRIPTION);
+  });
+
+  it("returns modified description with URL when buildOnExisting is true and URL is non-empty", () => {
+    const result = buildOnboardingTaskDescription({
+      buildOnExisting: true,
+      existingBusinessUrl: "https://example.com",
+    });
+    expect(result).toContain("building on top of an existing business");
+    expect(result).toContain("Existing business: https://example.com");
+    expect(result).toContain("research the existing business thoroughly");
+    expect(result).not.toBe(DEFAULT_TASK_DESCRIPTION);
+  });
+
+  it("trims the URL", () => {
+    const result = buildOnboardingTaskDescription({
+      buildOnExisting: true,
+      existingBusinessUrl: "  https://example.com  ",
+    });
+    expect(result).toContain("Existing business: https://example.com");
+    expect(result).not.toContain("Existing business:   https://example.com");
   });
 });
