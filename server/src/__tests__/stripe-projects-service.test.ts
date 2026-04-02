@@ -1127,6 +1127,97 @@ describe("stripeProjectsService", () => {
       await expect(svc.addService("conn-1", "")).rejects.toThrow(/providerService/);
       expect(spawnFn).not.toHaveBeenCalled();
     });
+
+    /* cwd scoping: addService passes connection stripeProjectDir as cwd */
+    it("passes connection stripeProjectDir as cwd to CLI wrapper", async () => {
+      const cliOutput = { id: "svc-123", tier: "pro" };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(cliOutput),
+      });
+
+      const connectionWithDir = {
+        ...connectionRow,
+        stripeProjectDir: "/home/user/.projects/proj-alpha",
+      };
+
+      let insertedRow: any = null;
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionWithDir]).then(resolve),
+            }),
+          }),
+        }),
+        insert: () => ({
+          values: (data: any) => {
+            insertedRow = {
+              ...data,
+              id: crypto.randomUUID(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            return {
+              returning: () => ({
+                then: (resolve: any) => Promise.resolve([insertedRow]).then(resolve),
+              }),
+            };
+          },
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+      await svc.addService("conn-1", "vercel/project");
+
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, , spawnOpts] = spawnFn.mock.calls[0];
+      expect(spawnOpts.cwd).toBe("/home/user/.projects/proj-alpha");
+    });
+
+    it("does not pass cwd when connection has no stripeProjectDir", async () => {
+      const cliOutput = { id: "svc-123", tier: "pro" };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(cliOutput),
+      });
+
+      const connectionNoDir = {
+        ...connectionRow,
+        stripeProjectDir: null,
+      };
+
+      let insertedRow: any = null;
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionNoDir]).then(resolve),
+            }),
+          }),
+        }),
+        insert: () => ({
+          values: (data: any) => {
+            insertedRow = {
+              ...data,
+              id: crypto.randomUUID(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            return {
+              returning: () => ({
+                then: (resolve: any) => Promise.resolve([insertedRow]).then(resolve),
+              }),
+            };
+          },
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+      await svc.addService("conn-1", "vercel/project");
+
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, , spawnOpts] = spawnFn.mock.calls[0];
+      expect(spawnOpts.cwd).toBeUndefined();
+    });
   });
 
   /* ================================================================ */
@@ -1245,6 +1336,104 @@ describe("stripeProjectsService", () => {
 
       await expect(svc.removeService("")).rejects.toThrow(/serviceId/);
       expect(spawnFn).not.toHaveBeenCalled();
+    });
+
+    /* cwd scoping: removeService passes connection stripeProjectDir as cwd */
+    it("passes connection stripeProjectDir as cwd to CLI wrapper", async () => {
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify({ removed: true }),
+      });
+
+      const connectionRow = {
+        id: "conn-1",
+        companyId: "c-1",
+        projectId: "p-1",
+        stripeProjectName: "my-project",
+        stripeProjectDir: "/home/user/.projects/proj-alpha",
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const deleteSpy = vi.fn().mockReturnValue(Promise.resolve());
+      let selectCallCount = 0;
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => {
+                selectCallCount++;
+                // First select: service lookup; second: connection lookup
+                if (selectCallCount === 1) {
+                  return Promise.resolve([serviceRow]).then(resolve);
+                }
+                return Promise.resolve([connectionRow]).then(resolve);
+              },
+            }),
+          }),
+        }),
+        delete: () => ({
+          where: () => {
+            deleteSpy();
+            return Promise.resolve();
+          },
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+      await svc.removeService("svc-1");
+
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, , spawnOpts] = spawnFn.mock.calls[0];
+      expect(spawnOpts.cwd).toBe("/home/user/.projects/proj-alpha");
+    });
+
+    it("does not pass cwd when connection has no stripeProjectDir for removeService", async () => {
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify({ removed: true }),
+      });
+
+      const connectionRow = {
+        id: "conn-1",
+        companyId: "c-1",
+        projectId: "p-1",
+        stripeProjectName: "my-project",
+        stripeProjectDir: null,
+        status: "active",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const deleteSpy = vi.fn().mockReturnValue(Promise.resolve());
+      let selectCallCount = 0;
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => {
+                selectCallCount++;
+                if (selectCallCount === 1) {
+                  return Promise.resolve([serviceRow]).then(resolve);
+                }
+                return Promise.resolve([connectionRow]).then(resolve);
+              },
+            }),
+          }),
+        }),
+        delete: () => ({
+          where: () => {
+            deleteSpy();
+            return Promise.resolve();
+          },
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+      await svc.removeService("svc-1");
+
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, , spawnOpts] = spawnFn.mock.calls[0];
+      expect(spawnOpts.cwd).toBeUndefined();
     });
   });
 
@@ -1467,6 +1656,67 @@ describe("stripeProjectsService", () => {
 
       await expect(svc.syncCredentials("")).rejects.toThrow(/connectionId/);
       expect(spawnFn).not.toHaveBeenCalled();
+    });
+
+    /* cwd scoping: syncCredentials passes connection stripeProjectDir as cwd */
+    it("passes connection stripeProjectDir as cwd to CLI wrapper", async () => {
+      const envData = { DATABASE_URL: "postgres://localhost/mydb" };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(envData),
+      });
+
+      const connectionWithDir = {
+        ...connectionRow,
+        stripeProjectDir: "/home/user/.projects/proj-alpha",
+      };
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionWithDir]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const { svc: mockSecretSvc } = makeMockSecretSvc();
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+      await svc.syncCredentials("conn-1");
+
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, , spawnOpts] = spawnFn.mock.calls[0];
+      expect(spawnOpts.cwd).toBe("/home/user/.projects/proj-alpha");
+    });
+
+    it("does not pass cwd when connection has no stripeProjectDir for syncCredentials", async () => {
+      const envData = { DATABASE_URL: "postgres://localhost/mydb" };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(envData),
+      });
+
+      const connectionNoDir = {
+        ...connectionRow,
+        stripeProjectDir: null,
+      };
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([connectionNoDir]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const { svc: mockSecretSvc } = makeMockSecretSvc();
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+      await svc.syncCredentials("conn-1");
+
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, , spawnOpts] = spawnFn.mock.calls[0];
+      expect(spawnOpts.cwd).toBeUndefined();
     });
   });
 
@@ -1697,6 +1947,82 @@ describe("stripeProjectsService", () => {
 
       await expect(svc.rotateCredentials("conn-1", "")).rejects.toThrow(/serviceId/);
       expect(spawnFn).not.toHaveBeenCalled();
+    });
+
+    /* cwd scoping: rotateCredentials passes connection stripeProjectDir as cwd */
+    it("passes connection stripeProjectDir as cwd to CLI wrapper", async () => {
+      const rotatedEnv = { API_KEY: "new-key-123" };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(rotatedEnv),
+      });
+
+      const connectionWithDir = {
+        ...connectionRow,
+        stripeProjectDir: "/home/user/.projects/proj-alpha",
+      };
+
+      let selectCallCount = 0;
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => {
+                selectCallCount++;
+                // First select: connection lookup; second: service lookup
+                if (selectCallCount === 1) {
+                  return Promise.resolve([connectionWithDir]).then(resolve);
+                }
+                return Promise.resolve([serviceRow]).then(resolve);
+              },
+            }),
+          }),
+        }),
+      };
+
+      const { svc: mockSecretSvc } = makeMockSecretSvc();
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+      await svc.rotateCredentials("conn-1", "svc-1");
+
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, , spawnOpts] = spawnFn.mock.calls[0];
+      expect(spawnOpts.cwd).toBe("/home/user/.projects/proj-alpha");
+    });
+
+    it("does not pass cwd when connection has no stripeProjectDir for rotateCredentials", async () => {
+      const rotatedEnv = { API_KEY: "new-key-123" };
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify(rotatedEnv),
+      });
+
+      const connectionNoDir = {
+        ...connectionRow,
+        stripeProjectDir: null,
+      };
+
+      let selectCallCount = 0;
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => {
+                selectCallCount++;
+                if (selectCallCount === 1) {
+                  return Promise.resolve([connectionNoDir]).then(resolve);
+                }
+                return Promise.resolve([serviceRow]).then(resolve);
+              },
+            }),
+          }),
+        }),
+      };
+
+      const { svc: mockSecretSvc } = makeMockSecretSvc();
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn }, mockSecretSvc);
+      await svc.rotateCredentials("conn-1", "svc-1");
+
+      expect(spawnFn).toHaveBeenCalledOnce();
+      const [, , spawnOpts] = spawnFn.mock.calls[0];
+      expect(spawnOpts.cwd).toBeUndefined();
     });
   });
 

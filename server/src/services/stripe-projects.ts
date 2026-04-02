@@ -267,10 +267,13 @@ export function stripeProjectsService(
       const serviceType = slashIdx > 0 ? providerService.slice(slashIdx + 1) : providerService;
 
       // Call CLI to provision the service
+      const addCliOptions = connection.stripeProjectDir
+        ? { ...cliOptions, cwd: connection.stripeProjectDir }
+        : cliOptions;
       const cliResult = (await execStripeProjectsCmd(
         "add",
         [providerService],
-        cliOptions,
+        addCliOptions,
       )) as Record<string, unknown>;
 
       // Store service record in DB
@@ -311,11 +314,22 @@ export function stripeProjectsService(
         throw notFound("Provisioned service not found");
       }
 
+      // Look up the connection to get the project directory for cwd scoping
+      const connection = await db
+        .select()
+        .from(stripeProjectConnections)
+        .where(eq(stripeProjectConnections.id, service.connectionId))
+        .then((rows) => rows[0] ?? null);
+
+      const removeCliOptions = connection?.stripeProjectDir
+        ? { ...cliOptions, cwd: connection.stripeProjectDir }
+        : cliOptions;
+
       // Call CLI to remove the service — if this throws, DB row is preserved
       await execStripeProjectsCmd(
         "remove",
         [service.providerService],
-        cliOptions,
+        removeCliOptions,
       );
 
       // Only delete DB row on successful CLI removal
@@ -346,7 +360,10 @@ export function stripeProjectsService(
       }
 
       // Call CLI to get environment variables — if this throws, no secrets are modified
-      const cliResult = await execStripeProjectsCmd("env", [], cliOptions);
+      const syncCliOptions = connection.stripeProjectDir
+        ? { ...cliOptions, cwd: connection.stripeProjectDir }
+        : cliOptions;
+      const cliResult = await execStripeProjectsCmd("env", [], syncCliOptions);
 
       // Parse key-value pairs from the result
       const envEntries = parseEnvEntries(cliResult);
@@ -421,10 +438,13 @@ export function stripeProjectsService(
       }
 
       // Call CLI to rotate credentials — if this throws, secrets are preserved
+      const rotateCliOptions = connection.stripeProjectDir
+        ? { ...cliOptions, cwd: connection.stripeProjectDir }
+        : cliOptions;
       const cliResult = await execStripeProjectsCmd(
         "rotate",
         [service.providerService],
-        cliOptions,
+        rotateCliOptions,
       );
 
       // Parse the rotated credential values and update secrets
