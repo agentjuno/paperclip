@@ -32,3 +32,4 @@ export { reconcilePersistedRuntimeServicesOnStartup } from "./workspace-runtime.
 export { createStorageServiceFromConfig, getStorageService } from "../storage/index.js";
 export { tokenLaunchService } from "./token-launch.js";
 export { execStripeProjectsCmd, StripeProjectsCliError, type ExecStripeProjectsCmdOptions, type StripeProjectsCliErrorCode } from "./stripe-projects-cli.js";
+export { stripeProjectsService } from "./stripe-projects.js";
