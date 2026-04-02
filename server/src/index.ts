@@ -22,6 +22,7 @@ import {
   companies,
   companyMemberships,
   instanceUserRoles,
+  userWalletLinks,
 } from "@paperclipai/db";
 import detectPort from "detect-port";
 import { createApp } from "./app.js";
@@ -199,6 +200,18 @@ export async function startServer(): Promise<StartedServer> {
         updatedAt: now,
       });
     }
+
+    // Seed a wallet link so token-launch simulate/submit work in local_trusted mode.
+    await db
+      .insert(userWalletLinks)
+      .values({
+        userId: LOCAL_BOARD_USER_ID,
+        address: "0x0000000000000000000000000000000000C0FFEE",
+        chainType: "ethereum",
+        walletType: "embedded",
+        isPrimary: true,
+      })
+      .onConflictDoNothing();
   
     const role = await db
       .select({ id: instanceUserRoles.id })
