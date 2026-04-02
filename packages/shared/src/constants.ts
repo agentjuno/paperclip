@@ -188,7 +188,7 @@ export const PROJECT_COLORS = [
   "#3b82f6", // blue
 ] as const;
 
-export const APPROVAL_TYPES = ["hire_agent", "approve_ceo_strategy", "budget_override_required"] as const;
+export const APPROVAL_TYPES = ["hire_agent", "approve_ceo_strategy", "budget_override_required", "token_launch"] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
 export const APPROVAL_STATUSES = [
@@ -354,6 +354,14 @@ export const PERMISSION_KEYS = [
   "joins:approve",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
+
+export const TOKEN_LAUNCH_DEPLOY_STATUSES = [
+  "not_started",
+  "failed",
+  "unknown",
+  "deployed",
+] as const;
+export type TokenLaunchDeployStatus = (typeof TOKEN_LAUNCH_DEPLOY_STATUSES)[number];
 
 // ---------------------------------------------------------------------------
 // Plugin System — see doc/plugins/PLUGIN_SPEC.md for the full specification
