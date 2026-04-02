@@ -207,6 +207,40 @@ describe("execStripeProjectsCmd", () => {
     }
   });
 
+  /* VAL-SVC-032 (shell mode): Missing binary in shell mode exits 127 with 'command not found' */
+  it("throws NOT_FOUND error when shell exits 127 with 'command not found' (shell-mode missing binary)", async () => {
+    const spawnFn = makeSpawnFn({
+      stderr: "/bin/sh: stripe: command not found\n",
+      exitCode: 127,
+    });
+
+    try {
+      await execStripeProjectsCmd("init", [], { spawn: spawnFn });
+      expect.unreachable("Should have thrown");
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(StripeProjectsCliError);
+      expect(err.code).toBe("NOT_FOUND");
+      expect(err.message).toMatch(/stripe cli.*not found|install/i);
+      expect(err.stderr).toContain("command not found");
+    }
+  });
+
+  it("throws NOT_FOUND error when shell exits 127 with 'not found' variant (shell-mode missing binary)", async () => {
+    const spawnFn = makeSpawnFn({
+      stderr: "stripe: not found\n",
+      exitCode: 127,
+    });
+
+    try {
+      await execStripeProjectsCmd("catalog", [], { spawn: spawnFn });
+      expect.unreachable("Should have thrown");
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(StripeProjectsCliError);
+      expect(err.code).toBe("NOT_FOUND");
+      expect(err.message).toMatch(/stripe cli.*not found|install/i);
+    }
+  });
+
   /* VAL-SVC-033: Auth expired stderr produces re-auth error */
   it("throws auth-specific error when CLI reports authentication failure", async () => {
     const spawnFn = makeSpawnFn({

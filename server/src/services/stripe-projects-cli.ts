@@ -230,6 +230,23 @@ export async function execStripeProjectsCmd(
       }
 
       if (code !== 0) {
+        // Shell-mode missing binary: shell exits 127, stderr contains "not found"
+        if (
+          code === 127 &&
+          /command not found|not found/i.test(stderr)
+        ) {
+          settle(() =>
+            reject(
+              new StripeProjectsCliError(
+                "NOT_FOUND",
+                "Stripe CLI not found. Please install it: https://docs.stripe.com/stripe-cli#install",
+                { stderr },
+              ),
+            ),
+          );
+          return;
+        }
+
         const errorCode = classifyStderr(stderr);
         const message = buildErrorMessage(errorCode, stderr || `Process exited with code ${code}`);
         settle(() =>
