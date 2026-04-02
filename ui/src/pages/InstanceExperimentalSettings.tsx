@@ -39,12 +39,12 @@ export function InstanceExperimentalSettings() {
   });
 
   if (experimentalQuery.isLoading) {
-    return <div className="text-sm text-muted-foreground">Loading experimental settings...</div>;
+    return <div className="paperclip-panel rounded-[24px] px-4 py-3 text-sm text-muted-foreground">Loading experimental settings…</div>;
   }
 
   if (experimentalQuery.error) {
     return (
-      <div className="text-sm text-destructive">
+      <div className="paperclip-panel rounded-[24px] border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
         {experimentalQuery.error instanceof Error
           ? experimentalQuery.error.message
           : "Failed to load experimental settings."}
@@ -57,81 +57,88 @@ export function InstanceExperimentalSettings() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <FlaskConical className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-lg font-semibold">Experimental</h1>
+      <div className="paperclip-panel paperclip-panel-strong rounded-[28px] p-5 sm:p-6">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+          <FlaskConical className="h-3.5 w-3.5 text-emerald-400" />
+          <span>Instance settings / experimental</span>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Opt into features that are still being evaluated before they become default behavior.
-        </p>
+        <div className="mt-3 space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight">Experimental</h1>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            Opt into features that are still being evaluated before they become default behavior.
+          </p>
+        </div>
       </div>
 
       {actionError && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <div className="paperclip-panel rounded-[24px] border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {actionError}
         </div>
       )}
 
-      <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1.5">
-            <h2 className="text-sm font-semibold">Enable Isolated Workspaces</h2>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Show execution workspace controls in project configuration and allow isolated workspace behavior for new
-              and existing issue runs.
-            </p>
-          </div>
-          <button
-            type="button"
-            data-slot="toggle"
-            aria-label="Toggle isolated workspaces experimental setting"
-            disabled={toggleMutation.isPending}
-            className={cn(
-              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-              enableIsolatedWorkspaces ? "bg-green-600" : "bg-muted",
-            )}
-            onClick={() => toggleMutation.mutate({ enableIsolatedWorkspaces: !enableIsolatedWorkspaces })}
-          >
-            <span
+      <section className="space-y-4">
+        <div className="paperclip-panel rounded-[28px] p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Workspace isolation</div>
+              <h2 className="text-base font-semibold">Enable Isolated Workspaces</h2>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                Show execution workspace controls in project configuration and allow isolated workspace behavior for new
+                and existing issue runs.
+              </p>
+            </div>
+            <button
+              type="button"
+              data-slot="toggle"
+              aria-label="Toggle isolated workspaces experimental setting"
+              disabled={toggleMutation.isPending}
               className={cn(
-                "inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform",
-                enableIsolatedWorkspaces ? "translate-x-4.5" : "translate-x-0.5",
+                "relative inline-flex h-6 w-10 items-center rounded-full border border-border/70 transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                enableIsolatedWorkspaces ? "bg-emerald-500/80" : "bg-muted/80",
               )}
-            />
-          </button>
+              onClick={() => toggleMutation.mutate({ enableIsolatedWorkspaces: !enableIsolatedWorkspaces })}
+            >
+              <span
+                className={cn(
+                  "inline-block h-4 w-4 rounded-full bg-white transition-transform",
+                  enableIsolatedWorkspaces ? "translate-x-5" : "translate-x-1",
+                )}
+              />
+            </button>
+          </div>
         </div>
-      </section>
 
-      <section className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1.5">
-            <h2 className="text-sm font-semibold">Auto-Restart Dev Server When Idle</h2>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              In `pnpm dev:once`, wait for all queued and running local agent runs to finish, then restart the server
-              automatically when backend changes or migrations make the current boot stale.
-            </p>
-          </div>
-          <button
-            type="button"
-            data-slot="toggle"
-            aria-label="Toggle guarded dev-server auto-restart"
-            disabled={toggleMutation.isPending}
-            className={cn(
-              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-              autoRestartDevServerWhenIdle ? "bg-green-600" : "bg-muted",
-            )}
-            onClick={() =>
-              toggleMutation.mutate({ autoRestartDevServerWhenIdle: !autoRestartDevServerWhenIdle })
-            }
-          >
-            <span
+        <div className="paperclip-panel rounded-[28px] p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Runtime behavior</div>
+              <h2 className="text-base font-semibold">Auto-Restart Dev Server When Idle</h2>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                In `pnpm dev:once`, wait for all queued and running local agent runs to finish, then restart the server
+                automatically when backend changes or migrations make the current boot stale.
+              </p>
+            </div>
+            <button
+              type="button"
+              data-slot="toggle"
+              aria-label="Toggle guarded dev-server auto-restart"
+              disabled={toggleMutation.isPending}
               className={cn(
-                "inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform",
-                autoRestartDevServerWhenIdle ? "translate-x-4.5" : "translate-x-0.5",
+                "relative inline-flex h-6 w-10 items-center rounded-full border border-border/70 transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                autoRestartDevServerWhenIdle ? "bg-emerald-500/80" : "bg-muted/80",
               )}
-            />
-          </button>
+              onClick={() =>
+                toggleMutation.mutate({ autoRestartDevServerWhenIdle: !autoRestartDevServerWhenIdle })
+              }
+            >
+              <span
+                className={cn(
+                  "inline-block h-4 w-4 rounded-full bg-white transition-transform",
+                  autoRestartDevServerWhenIdle ? "translate-x-5" : "translate-x-1",
+                )}
+              />
+            </button>
+          </div>
         </div>
       </section>
     </div>

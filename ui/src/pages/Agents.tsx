@@ -118,6 +118,12 @@ export function Agents() {
     return map;
   }, [agents]);
 
+  const totalAgents = agents?.length ?? 0;
+  const liveAgentCount = liveRunByAgent.size;
+  const activeAgents = (agents ?? []).filter((agent) => agent.status === "active" || agent.status === "running" || agent.status === "idle").length;
+  const pausedAgents = (agents ?? []).filter((agent) => agent.status === "paused").length;
+  const errorAgents = (agents ?? []).filter((agent) => agent.status === "error").length;
+
   useEffect(() => {
     setBreadcrumbs([{ label: "Agents" }]);
   }, [setBreadcrumbs]);
@@ -134,84 +140,125 @@ export function Agents() {
   const filteredOrg = filterOrgTree(orgTree ?? [], tab, showTerminated);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Tabs value={tab} onValueChange={(v) => navigate(`/agents/${v}`)}>
-          <PageTabBar
-            items={[
-              { value: "all", label: "All" },
-              { value: "active", label: "Active" },
-              { value: "paused", label: "Paused" },
-              { value: "error", label: "Error" },
-            ]}
-            value={tab}
-            onValueChange={(v) => navigate(`/agents/${v}`)}
-          />
-        </Tabs>
-        <div className="flex items-center gap-2">
-          {/* Filters */}
-          <div className="relative">
-            <button
-              className={cn(
-                "flex items-center gap-1.5 px-2 py-1.5 text-xs transition-colors border border-border",
-                filtersOpen || showTerminated ? "text-foreground bg-accent" : "text-muted-foreground hover:bg-accent/50"
+    <div className="space-y-5">
+      <section className="paperclip-panel paperclip-panel-strong command-fade-up p-5 sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="paperclip-kicker">Agent index</p>
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Agents</h1>
+              <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
+                Coordinate adapters, live runs, and org structure from one operational surface.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
+                <span className="text-foreground">{totalAgents}</span>
+                total
+              </span>
+              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
+                <span className="text-foreground">{activeAgents}</span>
+                active
+              </span>
+              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
+                <span className="text-foreground">{liveAgentCount}</span>
+                live
+              </span>
+              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
+                <span className="text-foreground">{pausedAgents}</span>
+                paused
+              </span>
+              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
+                <span className="text-foreground">{errorAgents}</span>
+                error
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={openNewAgent}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              New Agent
+            </Button>
+          </div>
+        </div>
+
+        <div className="paperclip-soft-divider my-5" />
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <Tabs value={tab} onValueChange={(v) => navigate(`/agents/${v}`)}>
+            <PageTabBar
+              items={[
+                { value: "all", label: "All" },
+                { value: "active", label: "Active" },
+                { value: "paused", label: "Paused" },
+                { value: "error", label: "Error" },
+              ]}
+              value={tab}
+              onValueChange={(v) => navigate(`/agents/${v}`)}
+            />
+          </Tabs>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <button
+                className={cn(
+                  "flex items-center gap-1.5 border border-border/70 px-2.5 py-1.5 text-xs transition-colors",
+                  filtersOpen || showTerminated
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:bg-accent/40"
+                )}
+                onClick={() => setFiltersOpen(!filtersOpen)}
+              >
+                <SlidersHorizontal className="h-3 w-3" />
+                Filters
+                {showTerminated && <span className="ml-0.5 px-1 bg-foreground/10 rounded text-[10px]">1</span>}
+              </button>
+              {filtersOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-48 border border-border bg-popover p-1 shadow-md">
+                  <button
+                    className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent/50"
+                    onClick={() => setShowTerminated(!showTerminated)}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-3.5 w-3.5 items-center justify-center border border-border rounded-sm",
+                        showTerminated && "bg-foreground"
+                      )}
+                    >
+                      {showTerminated && <span className="text-background text-[10px] leading-none">&#10003;</span>}
+                    </span>
+                    Show terminated
+                  </button>
+                </div>
               )}
-              onClick={() => setFiltersOpen(!filtersOpen)}
-            >
-              <SlidersHorizontal className="h-3 w-3" />
-              Filters
-              {showTerminated && <span className="ml-0.5 px-1 bg-foreground/10 rounded text-[10px]">1</span>}
-            </button>
-            {filtersOpen && (
-              <div className="absolute right-0 top-full mt-1 z-50 w-48 border border-border bg-popover shadow-md p-1">
+            </div>
+
+            {!forceListView && (
+              <div className="flex items-center border border-border/70">
                 <button
-                  className="flex items-center gap-2 w-full px-2 py-1.5 text-xs text-left hover:bg-accent/50 transition-colors"
-                  onClick={() => setShowTerminated(!showTerminated)}
+                  className={cn(
+                    "p-1.5 transition-colors",
+                    effectiveView === "list" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/40"
+                  )}
+                  onClick={() => setView("list")}
                 >
-                  <span className={cn(
-                    "flex items-center justify-center h-3.5 w-3.5 border border-border rounded-sm",
-                    showTerminated && "bg-foreground"
-                  )}>
-                    {showTerminated && <span className="text-background text-[10px] leading-none">&#10003;</span>}
-                  </span>
-                  Show terminated
+                  <List className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  className={cn(
+                    "p-1.5 transition-colors",
+                    effectiveView === "org" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/40"
+                  )}
+                  onClick={() => setView("org")}
+                >
+                  <GitBranch className="h-3.5 w-3.5" />
                 </button>
               </div>
             )}
           </div>
-          {/* View toggle */}
-          {!forceListView && (
-            <div className="flex items-center border border-border">
-              <button
-                className={cn(
-                  "p-1.5 transition-colors",
-                  effectiveView === "list" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50"
-                )}
-                onClick={() => setView("list")}
-              >
-                <List className="h-3.5 w-3.5" />
-              </button>
-              <button
-                className={cn(
-                  "p-1.5 transition-colors",
-                  effectiveView === "org" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50"
-                )}
-                onClick={() => setView("org")}
-              >
-                <GitBranch className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
-          <Button size="sm" variant="outline" onClick={openNewAgent}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Agent
-          </Button>
         </div>
-      </div>
-
-      {filtered.length > 0 && (
-        <p className="text-xs text-muted-foreground">{filtered.length} agent{filtered.length !== 1 ? "s" : ""}</p>
-      )}
+      </section>
 
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
@@ -226,7 +273,16 @@ export function Agents() {
 
       {/* List view */}
       {effectiveView === "list" && filtered.length > 0 && (
-        <div className="border border-border">
+        <div className="paperclip-panel">
+          <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
+            <div>
+              <p className="paperclip-kicker">Working surface</p>
+              <p className="text-sm text-muted-foreground">{filtered.length} agent{filtered.length !== 1 ? "s" : ""}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {tab === "all" ? "All statuses" : `${tab.charAt(0).toUpperCase() + tab.slice(1)} only`}
+            </p>
+          </div>
           {filtered.map((agent) => {
             return (
               <EntityRow
@@ -288,10 +344,19 @@ export function Agents() {
 
       {/* Org chart view */}
       {effectiveView === "org" && filteredOrg.length > 0 && (
-        <div className="border border-border py-1">
+        <div className="paperclip-panel">
+          <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
+            <div>
+              <p className="paperclip-kicker">Org view</p>
+              <p className="text-sm text-muted-foreground">{filteredOrg.length} visible branch{filteredOrg.length !== 1 ? "es" : ""}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Hierarchy and live state</p>
+          </div>
+          <div className="py-1">
           {filteredOrg.map((node) => (
             <OrgTreeNode key={node.id} node={node} depth={0} agentMap={agentMap} liveRunByAgent={liveRunByAgent} />
           ))}
+          </div>
         </div>
       )}
 
@@ -400,7 +465,7 @@ function LiveRunIndicator({
   return (
     <Link
       to={`/agents/${agentRef}/runs/${runId}`}
-      className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 hover:bg-blue-500/20 transition-colors no-underline"
+      className="flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 no-underline transition-colors hover:bg-blue-500/20"
       onClick={(e) => e.stopPropagation()}
     >
       <span className="relative flex h-2 w-2">

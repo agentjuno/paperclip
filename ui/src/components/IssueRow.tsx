@@ -48,7 +48,7 @@ export function IssueRow({
       to={`/issues/${issuePathId}`}
       state={issueLinkState}
       className={cn(
-        "group flex items-start gap-2 border-b border-border py-2.5 pl-2 pr-3 text-sm no-underline text-inherit transition-colors hover:bg-accent/50 last:border-b-0 sm:items-center sm:py-2 sm:pl-1",
+        "group flex items-start gap-2 rounded-[var(--paperclip-radius-panel)] border border-border/70 bg-background/60 px-3 py-3 text-sm no-underline text-inherit transition-[border-color,background-color,transform] duration-200 hover:border-primary/30 hover:bg-accent/45 sm:items-center sm:px-3.5 sm:py-2.5",
         className,
       )}
     >
@@ -87,7 +87,7 @@ export function IssueRow({
         <span className="ml-auto hidden shrink-0 items-center gap-2 sm:order-3 sm:flex sm:gap-3">
           {desktopTrailing}
           {trailingMeta ? (
-            <span className="text-xs text-muted-foreground">{trailingMeta}</span>
+            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/85">{trailingMeta}</span>
           ) : null}
         </span>
       ) : null}

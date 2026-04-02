@@ -80,14 +80,14 @@ function MetricTile({
   icon: ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="border border-border p-4">
+    <div className="paperclip-panel p-4 transition-transform duration-200 hover:-translate-y-0.5">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{label}</div>
           <div className="mt-2 text-2xl font-semibold tabular-nums">{value}</div>
           <div className="mt-1 text-xs leading-5 text-muted-foreground">{subtitle}</div>
         </div>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center border border-border">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center border border-border/80 bg-background/60">
           <Icon className="h-4 w-4 text-muted-foreground" />
         </div>
       </div>
@@ -109,7 +109,7 @@ function FinanceSummaryCard({
   eventCount: number;
 }) {
   return (
-    <Card>
+    <Card className="paperclip-panel">
       <CardHeader className="px-5 pt-5 pb-2">
         <CardTitle className="text-base">Finance ledger</CardTitle>
         <CardDescription>
@@ -537,32 +537,81 @@ export function Costs() {
   const overviewError = spendError ?? financeError;
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-                <h1 className="text-3xl font-semibold tracking-tight">Costs</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Inference spend, platform fees, credits, and live quota windows.
-                </p>
+    <div className="paperclip-grid space-y-6">
+      <section className="command-hero-shell command-fade-up px-5 py-5 sm:px-6 lg:px-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl space-y-3">
+            <div className="paperclip-kicker flex items-center gap-3">
+              <span>Governance / Costs</span>
+              <span className="h-px w-8 bg-border/80" />
+              <span>{PRESET_LABELS[preset]}</span>
             </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {PRESET_KEYS.map((key) => (
-                <Button
-                  key={key}
-                  variant={preset === key ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setPreset(key)}
-                >
-                  {PRESET_LABELS[key]}
-                </Button>
-              ))}
+            <div className="space-y-2">
+              <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+                Costs
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+                Inference spend, platform fees, credits, and live quota windows in one operating surface.
+              </p>
             </div>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+            {PRESET_KEYS.map((key) => (
+              <Button
+                key={key}
+                variant={preset === key ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setPreset(key)}
+              >
+                {PRESET_LABELS[key]}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricTile
+            label="Inference spend"
+            value={formatCents(spendData?.summary.spendCents ?? 0)}
+            subtitle={`${formatTokens(inferenceTokenTotal)} tokens across request-scoped events`}
+            icon={DollarSign}
+          />
+          <MetricTile
+            label="Budget"
+            value={
+              activeBudgetIncidents.length > 0
+                ? String(activeBudgetIncidents.length)
+                : spendData?.summary.budgetCents && spendData.summary.budgetCents > 0
+                  ? `${spendData.summary.utilizationPercent}%`
+                  : "Open"
+            }
+            subtitle={
+              activeBudgetIncidents.length > 0
+                ? `${budgetData?.pausedAgentCount ?? 0} agents paused · ${budgetData?.pausedProjectCount ?? 0} projects paused`
+                : spendData?.summary.budgetCents && spendData.summary.budgetCents > 0
+                  ? `${formatCents(spendData.summary.spendCents)} of ${formatCents(spendData.summary.budgetCents)}`
+                  : "No monthly cap configured"
+            }
+            icon={Coins}
+          />
+          <MetricTile
+            label="Finance net"
+            value={formatCents(financeData?.summary.netCents ?? 0)}
+            subtitle={`${formatCents(financeData?.summary.debitCents ?? 0)} debits · ${formatCents(financeData?.summary.creditCents ?? 0)} credits`}
+            icon={ReceiptText}
+          />
+          <MetricTile
+            label="Finance events"
+            value={String(financeData?.summary.eventCount ?? 0)}
+            subtitle={`${formatCents(financeData?.summary.estimatedDebitCents ?? 0)} estimated in range`}
+            icon={ArrowUpRight}
+          />
+        </div>
+
+        <div className="mt-5 flex flex-col gap-3 border-t border-border/60 pt-4 lg:flex-row lg:items-center lg:justify-between">
           {preset === "custom" ? (
-            <div className="flex flex-wrap items-center gap-2 border border-border p-3">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="date"
                 value={customFrom}
@@ -577,48 +626,20 @@ export function Costs() {
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
               />
             </div>
-          ) : null}
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Showing {PRESET_LABELS[preset].toLowerCase()} spend for the selected company.
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            {showOverviewLoading ? "Refreshing ledgers..." : "Controls update the same underlying spend and finance records."}
+          </p>
+        </div>
+      </section>
 
-          <div className="grid gap-3 lg:grid-cols-4">
-            <MetricTile
-              label="Inference spend"
-              value={formatCents(spendData?.summary.spendCents ?? 0)}
-              subtitle={`${formatTokens(inferenceTokenTotal)} tokens across request-scoped events`}
-              icon={DollarSign}
-            />
-            <MetricTile
-              label="Budget"
-              value={activeBudgetIncidents.length > 0 ? String(activeBudgetIncidents.length) : (
-                spendData?.summary.budgetCents && spendData.summary.budgetCents > 0
-                  ? `${spendData.summary.utilizationPercent}%`
-                  : "Open"
-              )}
-              subtitle={
-                activeBudgetIncidents.length > 0
-                  ? `${budgetData?.pausedAgentCount ?? 0} agents paused · ${budgetData?.pausedProjectCount ?? 0} projects paused`
-                  : spendData?.summary.budgetCents && spendData.summary.budgetCents > 0
-                    ? `${formatCents(spendData.summary.spendCents)} of ${formatCents(spendData.summary.budgetCents)}`
-                    : "No monthly cap configured"
-              }
-              icon={Coins}
-            />
-            <MetricTile
-              label="Finance net"
-              value={formatCents(financeData?.summary.netCents ?? 0)}
-              subtitle={`${formatCents(financeData?.summary.debitCents ?? 0)} debits · ${formatCents(financeData?.summary.creditCents ?? 0)} credits`}
-              icon={ReceiptText}
-            />
-            <MetricTile
-              label="Finance events"
-              value={String(financeData?.summary.eventCount ?? 0)}
-              subtitle={`${formatCents(financeData?.summary.estimatedDebitCents ?? 0)} estimated in range`}
-              icon={ArrowUpRight}
-            />
-          </div>
-      </div>
-
-      <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as typeof mainTab)}>
-        <TabsList variant="line" className="justify-start">
+      <section className="paperclip-panel command-fade-up command-fade-delay-1 p-2 sm:p-3">
+        <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as typeof mainTab)}>
+          <TabsList variant="line" className="justify-start">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="budgets">Budgets</TabsTrigger>
           <TabsTrigger value="providers">Providers</TabsTrigger>
@@ -655,7 +676,7 @@ export function Costs() {
               ) : null}
 
               <div className="grid gap-4 xl:grid-cols-[1.3fr,1fr]">
-                <Card>
+                <Card className="paperclip-panel">
                   <CardHeader className="px-5 pt-5 pb-2">
                     <CardTitle className="text-base">Inference ledger</CardTitle>
                     <CardDescription>
@@ -674,7 +695,7 @@ export function Costs() {
                             : "Unlimited budget"}
                         </div>
                       </div>
-                      <div className="border border-border px-4 py-3 text-right">
+                      <div className="border border-border/80 bg-background/60 px-4 py-3 text-right">
                         <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">usage</div>
                         <div className="mt-1 text-lg font-medium tabular-nums">
                           {formatTokens(inferenceTokenTotal)}
@@ -714,7 +735,7 @@ export function Costs() {
               </div>
 
               <div className="grid gap-4 xl:grid-cols-[1.25fr,0.95fr]">
-                <Card>
+                <Card className="paperclip-panel">
                   <CardHeader className="px-5 pt-5 pb-2">
                     <CardTitle className="text-base">By agent</CardTitle>
                     <CardDescription>What each agent consumed in the selected period.</CardDescription>
@@ -728,7 +749,7 @@ export function Costs() {
                         const isExpanded = expandedAgents.has(row.agentId);
                         const hasBreakdown = modelRows.length > 0;
                         return (
-                          <div key={row.agentId} className="border border-border px-4 py-3">
+                        <div key={row.agentId} className="border border-border/80 px-4 py-3 transition-colors hover:bg-accent/20">
                             <div
                               className={cn("flex items-start justify-between gap-3", hasBreakdown ? "cursor-pointer select-none" : "")}
                               onClick={() => hasBreakdown && toggleAgent(row.agentId)}
@@ -802,7 +823,7 @@ export function Costs() {
                 </Card>
 
                 <div className="space-y-4">
-                  <Card>
+                  <Card className="paperclip-panel">
                     <CardHeader className="px-5 pt-5 pb-2">
                       <CardTitle className="text-base">By project</CardTitle>
                       <CardDescription>Run costs attributed through project-linked issues.</CardDescription>
@@ -814,7 +835,7 @@ export function Costs() {
                         spendData?.byProject.map((row, index) => (
                           <div
                             key={row.projectId ?? `unattributed-${index}`}
-                            className="flex items-center justify-between gap-3 border border-border px-3 py-2 text-sm"
+                            className="flex items-center justify-between gap-3 border border-border/80 px-3 py-2 text-sm transition-colors hover:bg-accent/20"
                           >
                             <span className="truncate">{row.projectName ?? row.projectId ?? "Unattributed"}</span>
                             <span className="font-medium tabular-nums">{formatCents(row.costCents)}</span>
@@ -937,7 +958,7 @@ export function Costs() {
                 })}
 
                 {budgetPolicies.length === 0 ? (
-                  <Card>
+                  <Card className="paperclip-panel">
                     <CardContent className="px-5 py-8 text-sm text-muted-foreground">
                       No budget policies yet. Set agent and project budgets from their detail pages, or use the existing company monthly budget control.
                     </CardContent>
@@ -1075,7 +1096,7 @@ export function Costs() {
 
               <div className="grid gap-4 xl:grid-cols-[1.2fr,0.95fr]">
                 <div className="space-y-4">
-                  <Card>
+                  <Card className="paperclip-panel">
                     <CardHeader className="px-5 pt-5 pb-2">
                       <CardTitle className="text-base">By biller</CardTitle>
                       <CardDescription>Account-level financial events grouped by who charged or credited them.</CardDescription>
@@ -1097,6 +1118,7 @@ export function Costs() {
           )}
         </TabsContent>
       </Tabs>
+      </section>
     </div>
   );
 }

@@ -150,12 +150,12 @@ export function InstanceSettings() {
   }, [agents]);
 
   if (heartbeatsQuery.isLoading) {
-    return <div className="text-sm text-muted-foreground">Loading scheduler heartbeats...</div>;
+    return <div className="paperclip-panel rounded-[24px] px-4 py-3 text-sm text-muted-foreground">Loading scheduler heartbeats…</div>;
   }
 
   if (heartbeatsQuery.error) {
     return (
-      <div className="text-sm text-destructive">
+      <div className="paperclip-panel rounded-[24px] border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
         {heartbeatsQuery.error instanceof Error
           ? heartbeatsQuery.error.message
           : "Failed to load scheduler heartbeats."}
@@ -165,69 +165,77 @@ export function InstanceSettings() {
 
   return (
     <div className="max-w-5xl space-y-6">
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Settings className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-lg font-semibold">Scheduler Heartbeats</h1>
+      <div className="paperclip-panel paperclip-panel-strong rounded-[28px] p-5 sm:p-6">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+          <Settings className="h-3.5 w-3.5 text-emerald-400" />
+          <span>Instance settings / scheduler heartbeats</span>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Agents with a timer heartbeat enabled across all of your companies.
-        </p>
-      </div>
-
-      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        <span><span className="font-semibold text-foreground">{activeCount}</span> active</span>
-        <span><span className="font-semibold text-foreground">{disabledCount}</span> disabled</span>
-        <span><span className="font-semibold text-foreground">{grouped.length}</span> {grouped.length === 1 ? "company" : "companies"}</span>
-        {anyEnabled && (
-          <Button
-            variant="destructive"
-            size="sm"
-            className="ml-auto h-7 text-xs"
-            disabled={disableAllMutation.isPending}
-            onClick={() => {
-              const noun = enabledCount === 1 ? "agent" : "agents";
-              if (!window.confirm(`Disable timer heartbeats for all ${enabledCount} enabled ${noun}?`)) {
-                return;
-              }
-              disableAllMutation.mutate(agents);
-            }}
-          >
-            {disableAllMutation.isPending ? "Disabling..." : "Disable All"}
-          </Button>
-        )}
+        <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-semibold tracking-tight">Scheduler Heartbeats</h1>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+              Agents with a timer heartbeat enabled across all of your companies.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1.5">
+              <span className="font-semibold text-foreground">{activeCount}</span> active
+            </span>
+            <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1.5">
+              <span className="font-semibold text-foreground">{disabledCount}</span> disabled
+            </span>
+            <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1.5">
+              <span className="font-semibold text-foreground">{grouped.length}</span>{" "}
+              {grouped.length === 1 ? "company" : "companies"}
+            </span>
+            {anyEnabled && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-9 rounded-xl text-xs"
+                disabled={disableAllMutation.isPending}
+                onClick={() => {
+                  const noun = enabledCount === 1 ? "agent" : "agents";
+                  if (!window.confirm(`Disable timer heartbeats for all ${enabledCount} enabled ${noun}?`)) {
+                    return;
+                  }
+                  disableAllMutation.mutate(agents);
+                }}
+              >
+                {disableAllMutation.isPending ? "Disabling..." : "Disable All"}
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
       {actionError && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <div className="paperclip-panel rounded-[24px] border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {actionError}
         </div>
       )}
 
       {agents.length === 0 ? (
-        <EmptyState
-          icon={Clock3}
-          message="No scheduler heartbeats match the current criteria."
-        />
+        <EmptyState icon={Clock3} message="No scheduler heartbeats match the current criteria." />
       ) : (
         <div className="space-y-4">
           {grouped.map((group) => (
-            <Card key={group.companyName}>
+            <Card key={group.companyName} className="paperclip-panel rounded-[28px] border-border/70">
               <CardContent className="p-0">
-                <div className="border-b px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="border-b border-border/60 px-4 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                   {group.companyName}
                 </div>
-                <div className="divide-y">
+                <div className="divide-y divide-border/60">
                   {group.agents.map((agent) => {
                     const saving = toggleMutation.isPending && toggleMutation.variables?.id === agent.id;
                     return (
                       <div
                         key={agent.id}
-                        className="flex items-center gap-3 px-3 py-2 text-sm"
+                        className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-accent/25"
                       >
                         <Badge
                           variant={agent.schedulerActive ? "default" : "outline"}
-                          className="shrink-0 text-[10px] px-1.5 py-0"
+                          className="shrink-0 px-1.5 py-0 text-[10px]"
                         >
                           {agent.schedulerActive ? "On" : "Off"}
                         </Badge>
@@ -251,7 +259,7 @@ export function InstanceSettings() {
                             ? relativeTime(agent.lastHeartbeatAt)
                             : "never"}
                         </span>
-                        <span className="ml-auto flex items-center gap-1.5 shrink-0">
+                        <span className="ml-auto flex shrink-0 items-center gap-1.5">
                           <Link
                             to={buildAgentHref(agent)}
                             className="text-muted-foreground hover:text-foreground"
@@ -262,7 +270,7 @@ export function InstanceSettings() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 px-2 text-xs"
+                            className="h-7 rounded-xl px-2 text-xs"
                             disabled={saving}
                             onClick={() => toggleMutation.mutate(agent)}
                           >

@@ -155,20 +155,31 @@ export function PluginManager() {
     [installedPlugins]
   );
 
-  if (isLoading) return <div className="p-4 text-sm text-muted-foreground">Loading plugins...</div>;
-  if (error) return <div className="p-4 text-sm text-destructive">Failed to load plugins.</div>;
+  if (isLoading) return <div className="paperclip-panel rounded-[24px] px-4 py-3 text-sm text-muted-foreground">Loading plugins…</div>;
+  if (error) return <div className="paperclip-panel rounded-[24px] border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">Failed to load plugins.</div>;
+
+  const installedCount = installedPlugins.length;
+  const readyCount = installedPlugins.filter((plugin) => plugin.status === "ready").length;
+  const errorCount = installedPlugins.filter((plugin) => plugin.status === "error").length;
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Puzzle className="h-6 w-6 text-muted-foreground" />
-          <h1 className="text-xl font-semibold">Plugin Manager</h1>
-        </div>
-        
-        <Dialog open={installDialogOpen} onOpenChange={setInstallDialogOpen}>
+    <div className="max-w-5xl space-y-6">
+      <div className="paperclip-panel paperclip-panel-strong rounded-[28px] p-5 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-muted-foreground">
+              <Puzzle className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Instance settings / plugins</span>
+            </div>
+            <h1 className="text-3xl font-semibold tracking-tight">Plugin Manager</h1>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+              Discover, install, and govern plugins that extend this instance.
+            </p>
+          </div>
+
+          <Dialog open={installDialogOpen} onOpenChange={setInstallDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="gap-2">
+            <Button size="sm" className="h-9 gap-2 rounded-xl">
               <Plus className="h-4 w-4" />
               Install Plugin
             </Button>
@@ -202,11 +213,23 @@ export function PluginManager() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
+          <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1.5">
+            <span className="font-semibold text-foreground">{installedCount}</span> installed
+          </span>
+          <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1.5">
+            <span className="font-semibold text-foreground">{readyCount}</span> ready
+          </span>
+          <span className="rounded-full border border-border/70 bg-background/50 px-3 py-1.5">
+            <span className="font-semibold text-foreground">{errorCount}</span> error
+          </span>
+        </div>
       </div>
 
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+      <div className="paperclip-panel rounded-[24px] border border-amber-500/20 bg-amber-500/[0.04] px-4 py-3">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
           <div className="space-y-1 text-sm">
             <p className="font-medium text-foreground">Plugins are alpha.</p>
             <p className="text-muted-foreground">
@@ -218,21 +241,21 @@ export function PluginManager() {
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <FlaskConical className="h-5 w-5 text-muted-foreground" />
+          <FlaskConical className="h-4 w-4 text-emerald-400" />
           <h2 className="text-base font-semibold">Available Plugins</h2>
           <Badge variant="outline">Examples</Badge>
         </div>
 
         {examplesQuery.isLoading ? (
-          <div className="text-sm text-muted-foreground">Loading bundled examples...</div>
+          <div className="paperclip-panel rounded-[22px] px-4 py-3 text-sm text-muted-foreground">Loading bundled examples…</div>
         ) : examplesQuery.error ? (
-          <div className="text-sm text-destructive">Failed to load bundled examples.</div>
+          <div className="paperclip-panel rounded-[22px] border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">Failed to load bundled examples.</div>
         ) : examples.length === 0 ? (
-          <div className="rounded-md border border-dashed px-4 py-3 text-sm text-muted-foreground">
+          <div className="paperclip-panel rounded-[22px] border border-dashed px-4 py-3 text-sm text-muted-foreground">
             No bundled example plugins were found in this checkout.
           </div>
         ) : (
-          <ul className="divide-y rounded-md border bg-card">
+          <ul className="divide-y divide-border/60 overflow-hidden rounded-[24px] border border-border/70 bg-card/70">
             {examples.map((example) => {
               const installedPlugin = installedByPackageName.get(example.packageName);
               const installPending =
@@ -242,7 +265,7 @@ export function PluginManager() {
 
               return (
                 <li key={example.packageName}>
-                  <div className="flex items-center gap-4 px-4 py-3">
+                  <div className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-accent/25">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{example.displayName}</span>
@@ -305,12 +328,12 @@ export function PluginManager() {
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <Puzzle className="h-5 w-5 text-muted-foreground" />
+          <Puzzle className="h-4 w-4 text-emerald-400" />
           <h2 className="text-base font-semibold">Installed Plugins</h2>
         </div>
 
         {!installedPlugins.length ? (
-          <Card className="bg-muted/30">
+          <Card className="paperclip-panel rounded-[24px] border-border/70 bg-muted/20">
             <CardContent className="flex flex-col items-center justify-center py-10">
               <Puzzle className="h-10 w-10 text-muted-foreground mb-4" />
               <p className="text-sm font-medium">No plugins installed</p>
@@ -320,10 +343,10 @@ export function PluginManager() {
             </CardContent>
           </Card>
         ) : (
-          <ul className="divide-y rounded-md border bg-card">
+          <ul className="divide-y divide-border/60 overflow-hidden rounded-[24px] border border-border/70 bg-card/70">
             {installedPlugins.map((plugin) => (
               <li key={plugin.id}>
-                <div className="flex items-start gap-4 px-4 py-3">
+                <div className="flex items-start gap-4 px-4 py-3 transition-colors hover:bg-accent/25">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
@@ -383,17 +406,14 @@ export function PluginManager() {
                                 ? "destructive"
                               : "secondary"
                           }
-                          className={cn(
-                            "shrink-0",
-                            plugin.status === "ready" ? "bg-green-600 hover:bg-green-700" : ""
-                          )}
+                          className={cn("shrink-0", plugin.status === "ready" ? "bg-emerald-500 hover:bg-emerald-600" : "")}
                         >
                           {plugin.status}
                         </Badge>
                         <Button
                           variant="outline"
                           size="icon-sm"
-                          className="h-8 w-8"
+                          className="h-8 w-8 rounded-xl"
                           title={plugin.status === "ready" ? "Disable" : "Enable"}
                           onClick={() => {
                             if (plugin.status === "ready") {
@@ -409,7 +429,7 @@ export function PluginManager() {
                         <Button
                           variant="outline"
                           size="icon-sm"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          className="h-8 w-8 rounded-xl text-destructive hover:text-destructive"
                           title="Uninstall"
                           onClick={() => {
                             setUninstallPluginId(plugin.id);
@@ -420,7 +440,7 @@ export function PluginManager() {
                           <Trash className="h-4 w-4" />
                         </Button>
                       </div>
-                      <Button variant="outline" size="sm" className="mt-2 h-8" asChild>
+                      <Button variant="outline" size="sm" className="mt-2 h-8 rounded-xl" asChild>
                         <Link to={`/instance/settings/plugins/${plugin.id}`}>
                           <Settings className="h-4 w-4" />
                           Configure

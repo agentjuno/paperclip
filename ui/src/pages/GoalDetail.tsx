@@ -116,81 +116,86 @@ export function GoalDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs uppercase text-muted-foreground">
-            {goal.level}
-          </span>
-          <StatusBadge status={goal.status} />
-        </div>
-
-        <InlineEditor
-          value={goal.title}
-          onSave={(title) => updateGoal.mutate({ title })}
-          as="h2"
-          className="text-xl font-bold"
-        />
-
-        <InlineEditor
-          value={goal.description ?? ""}
-          onSave={(description) => updateGoal.mutate({ description })}
-          as="p"
-          className="text-sm text-muted-foreground"
-          placeholder="Add a description..."
-          multiline
-          imageUploadHandler={async (file) => {
-            const asset = await uploadImage.mutateAsync(file);
-            return asset.contentPath;
-          }}
-        />
-      </div>
-
-      <Tabs defaultValue="children">
-        <TabsList>
-          <TabsTrigger value="children">
-            Sub-Goals ({childGoals.length})
-          </TabsTrigger>
-          <TabsTrigger value="projects">
-            Projects ({linkedProjects.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="children" className="mt-4 space-y-3">
-          <div className="flex items-center justify-start">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => openNewGoal({ parentId: goalId })}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Sub Goal
-            </Button>
+      <section className="rounded-3xl border border-border/70 bg-background/35 p-5 sm:p-6 shadow-[0_24px_80px_rgba(0,0,0,0.2)] backdrop-blur-sm space-y-5">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            <span>{goal.level}</span>
+            <span className="h-1 w-1 rounded-full bg-emerald-400/80" />
+            <StatusBadge status={goal.status} />
           </div>
-          {childGoals.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No sub-goals.</p>
-          ) : (
-            <GoalTree goals={childGoals} goalLink={(g) => `/goals/${g.id}`} />
-          )}
-        </TabsContent>
 
-        <TabsContent value="projects" className="mt-4">
-          {linkedProjects.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No linked projects.</p>
-          ) : (
-            <div className="border border-border">
-              {linkedProjects.map((project) => (
-                <EntityRow
-                  key={project.id}
-                  title={project.name}
-                  subtitle={project.description ?? undefined}
-                  to={projectUrl(project)}
-                  trailing={<StatusBadge status={project.status} />}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          <InlineEditor
+            value={goal.title}
+            onSave={(title) => updateGoal.mutate({ title })}
+            as="h2"
+            className="text-2xl font-semibold tracking-tight sm:text-[2rem]"
+          />
+
+          <InlineEditor
+            value={goal.description ?? ""}
+            onSave={(description) => updateGoal.mutate({ description })}
+            as="p"
+            className="max-w-3xl text-sm text-muted-foreground sm:text-[15px] sm:leading-7"
+            placeholder="Add a description..."
+            multiline
+            imageUploadHandler={async (file) => {
+              const asset = await uploadImage.mutateAsync(file);
+              return asset.contentPath;
+            }}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-border/70 bg-background/35 backdrop-blur-sm overflow-hidden">
+        <div className="border-b border-border/70 px-4 py-3 sm:px-5">
+          <Tabs defaultValue="children">
+            <TabsList className="w-full justify-start gap-1">
+              <TabsTrigger value="children">
+                Sub-Goals ({childGoals.length})
+              </TabsTrigger>
+              <TabsTrigger value="projects">
+                Projects ({linkedProjects.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="children" className="mt-5 space-y-4 px-0">
+              <div className="flex items-center justify-start">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openNewGoal({ parentId: goalId })}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Sub Goal
+                </Button>
+              </div>
+              {childGoals.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No sub-goals.</p>
+              ) : (
+                <GoalTree goals={childGoals} goalLink={(g) => `/goals/${g.id}`} />
+              )}
+            </TabsContent>
+
+            <TabsContent value="projects" className="mt-5 px-0">
+              {linkedProjects.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No linked projects.</p>
+              ) : (
+                <div className="overflow-hidden rounded-2xl border border-border/70">
+                  {linkedProjects.map((project) => (
+                    <EntityRow
+                      key={project.id}
+                      title={project.name}
+                      subtitle={project.description ?? undefined}
+                      to={projectUrl(project)}
+                      trailing={<StatusBadge status={project.status} />}
+                    />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </section>
     </div>
   );
 }

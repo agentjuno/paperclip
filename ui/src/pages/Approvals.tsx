@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { approvalsApi } from "../api/approvals";
@@ -73,6 +73,11 @@ export function Approvals() {
   const pendingCount = (data ?? []).filter(
     (a) => a.status === "pending" || a.status === "revision_requested",
   ).length;
+  const totalCount = data?.length ?? 0;
+  const revisionCount = useMemo(
+    () => (data ?? []).filter((approval) => approval.status === "revision_requested").length,
+    [data],
+  );
 
   if (!selectedCompanyId) {
     return <p className="text-sm text-muted-foreground">Select a company first.</p>;
@@ -83,29 +88,79 @@ export function Approvals() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <Tabs value={statusFilter} onValueChange={(v) => navigate(`/approvals/${v}`)}>
-          <PageTabBar items={[
-            { value: "pending", label: <>Pending{pendingCount > 0 && (
-              <span className={cn(
-                "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                "bg-yellow-500/20 text-yellow-500"
-              )}>
-                {pendingCount}
+    <div className="space-y-5">
+      <section className="paperclip-panel paperclip-panel-strong command-fade-up p-5 sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="paperclip-kicker">Decision queue</p>
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Approvals</h1>
+              <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
+                Review pending decisions, requested revisions, and historical outcomes from one queue.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
+                <span className="text-foreground">{pendingCount}</span>
+                pending
               </span>
-            )}</> },
-            { value: "all", label: "All" },
-          ]} />
-        </Tabs>
-      </div>
+              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
+                <span className="text-foreground">{revisionCount}</span>
+                revisions
+              </span>
+              <span className="inline-flex items-center gap-2 border border-border/60 bg-background/30 px-2.5 py-1 font-mono uppercase tracking-[0.16em] text-muted-foreground">
+                <span className="text-foreground">{totalCount}</span>
+                total
+              </span>
+            </div>
+          </div>
+
+          <div className="text-xs text-muted-foreground">
+            Approve, reject, or open detail without losing queue context.
+          </div>
+        </div>
+
+        <div className="paperclip-soft-divider my-5" />
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <Tabs value={statusFilter} onValueChange={(v) => navigate(`/approvals/${v}`)}>
+            <PageTabBar
+              items={[
+                {
+                  value: "pending",
+                  label: (
+                    <>
+                      Pending
+                      {pendingCount > 0 && (
+                        <span
+                          className={cn(
+                            "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                            "bg-yellow-500/20 text-yellow-500"
+                          )}
+                        >
+                          {pendingCount}
+                        </span>
+                      )}
+                    </>
+                  ),
+                },
+                { value: "all", label: "All" },
+              ]}
+            />
+          </Tabs>
+
+          <p className="text-xs text-muted-foreground">
+            {statusFilter === "pending" ? "Pending queue only." : "All approvals, including resolved items."}
+          </p>
+        </div>
+      </section>
 
       {error && <p className="text-sm text-destructive">{error.message}</p>}
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
       {filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <ShieldCheck className="h-8 w-8 text-muted-foreground/30 mb-3" />
+        <div className="paperclip-panel flex flex-col items-center justify-center py-16 text-center">
+          <ShieldCheck className="mb-3 h-8 w-8 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground">
             {statusFilter === "pending" ? "No pending approvals." : "No approvals yet."}
           </p>
@@ -113,7 +168,15 @@ export function Approvals() {
       )}
 
       {filtered.length > 0 && (
-        <div className="grid gap-3">
+        <div className="paperclip-panel p-3 sm:p-4">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <div>
+              <p className="paperclip-kicker">Working surface</p>
+              <p className="text-sm text-muted-foreground">{filtered.length} visible approval{filtered.length !== 1 ? "s" : ""}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Resolve from queue or detail</p>
+          </div>
+          <div className="grid gap-3">
           {filtered.map((approval) => (
             <ApprovalCard
               key={approval.id}
@@ -125,6 +188,7 @@ export function Approvals() {
               isPending={approveMutation.isPending || rejectMutation.isPending}
             />
           ))}
+          </div>
         </div>
       )}
     </div>

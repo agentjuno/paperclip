@@ -87,14 +87,50 @@ export function Companies() {
     setEditName("");
   }
 
+  const activeCompanyCount = companies.filter((company) => company.status === "active").length;
+  const archivedCompanyCount = companies.filter((company) => company.status === "archived").length;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-end">
-        <Button size="sm" onClick={() => openOnboarding()}>
-          <Plus className="h-3.5 w-3.5 mr-1.5" />
-          New Company
-        </Button>
-      </div>
+    <div className="paperclip-grid space-y-6">
+      <section className="command-hero-shell command-fade-up px-5 py-5 sm:px-6 lg:px-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl space-y-3">
+            <div className="paperclip-kicker flex items-center gap-3">
+              <span>Governance / Companies</span>
+              <span className="h-px w-8 bg-border/80" />
+              <span>{selectedCompanyId ? "Selected" : "No selection"}</span>
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+                Companies
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+                Switch between companies, rename records, and manage the operating surface without leaving the company shell.
+              </p>
+            </div>
+          </div>
+
+          <Button size="sm" onClick={() => openOnboarding()}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            New Company
+          </Button>
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <div className="paperclip-panel px-4 py-3">
+            <div className="paperclip-kicker">Total</div>
+            <div className="mt-2 text-2xl font-semibold tabular-nums">{companies.length}</div>
+          </div>
+          <div className="paperclip-panel px-4 py-3">
+            <div className="paperclip-kicker">Active</div>
+            <div className="mt-2 text-2xl font-semibold tabular-nums">{activeCompanyCount}</div>
+          </div>
+          <div className="paperclip-panel px-4 py-3">
+            <div className="paperclip-kicker">Archived</div>
+            <div className="mt-2 text-2xl font-semibold tabular-nums">{archivedCompanyCount}</div>
+          </div>
+        </div>
+      </section>
 
       <div className="h-6">
         {loading && <p className="text-sm text-muted-foreground">Loading companies...</p>}
@@ -128,11 +164,11 @@ export function Companies() {
                   setSelectedCompanyId(company.id);
                 }
               }}
-              className={`group text-left bg-card border rounded-lg p-5 transition-colors cursor-pointer ${
-                selected
-                  ? "border-primary ring-1 ring-primary"
-                  : "border-border hover:border-muted-foreground/30"
-              }`}
+            className={`group text-left rounded-none p-5 transition-[transform,border-color,box-shadow] duration-200 cursor-pointer hover:-translate-y-0.5 ${
+              selected
+                ? "paperclip-panel-strong border-primary/40 ring-1 ring-primary/30"
+                : "paperclip-panel border-border/80 hover:border-muted-foreground/30"
+            }`}
             >
               {/* Header row: name + menu */}
               <div className="flex items-start justify-between gap-3">

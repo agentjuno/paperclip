@@ -311,6 +311,12 @@ export function IssueDetail() {
     companyId: selectedCompanyId,
     userId: currentUserId,
   });
+  const { slots: issueTaskDetailViewSlots } = usePluginSlots({
+    slotTypes: ["taskDetailView"],
+    entityType: "issue",
+    companyId: resolvedCompanyId,
+    enabled: !!resolvedCompanyId,
+  });
   const { slots: issuePluginDetailSlots } = usePluginSlots({
     slotTypes: ["detailTab"],
     entityType: "issue",
@@ -655,6 +661,9 @@ export function IssueDetail() {
   const isImageAttachment = (attachment: IssueAttachment) => attachment.contentType.startsWith("image/");
   const attachmentList = attachments ?? [];
   const hasAttachments = attachmentList.length > 0;
+  const hasDocuments =
+    (issue.documentSummaries?.length ?? 0) > 0 || Boolean(issue.legacyPlanDocument);
+  const issueProject = orderedProjects.find((p) => p.id === issue.projectId) ?? null;
   const attachmentUploadButton = (
     <>
       <input
@@ -686,38 +695,42 @@ export function IssueDetail() {
     </>
   );
 
+  const shellClassName =
+    "rounded-3xl border border-border/70 bg-background/35 shadow-[0_24px_80px_rgba(0,0,0,0.22)] backdrop-blur-sm";
+
   return (
-    <div className="max-w-2xl space-y-6">
-      {/* Parent chain breadcrumb */}
-      {ancestors.length > 0 && (
-        <nav className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
-          {[...ancestors].reverse().map((ancestor, i) => (
-            <span key={ancestor.id} className="flex items-center gap-1">
-              {i > 0 && <ChevronRight className="h-3 w-3 shrink-0" />}
-              <Link
-                to={`/issues/${ancestor.identifier ?? ancestor.id}`}
-                state={location.state}
-                className="hover:text-foreground transition-colors truncate max-w-[200px]"
-                title={ancestor.title}
-              >
-                {ancestor.title}
-              </Link>
-            </span>
-          ))}
-          <ChevronRight className="h-3 w-3 shrink-0" />
-          <span className="text-foreground/60 truncate max-w-[200px]">{issue.title}</span>
-        </nav>
-      )}
+    <div className="max-w-4xl space-y-6">
+      <section className={`${shellClassName} p-5 sm:p-6 space-y-5`}>
+        {/* Parent chain breadcrumb */}
+        {ancestors.length > 0 && (
+          <nav className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
+            {[...ancestors].reverse().map((ancestor, i) => (
+              <span key={ancestor.id} className="flex items-center gap-1">
+                {i > 0 && <ChevronRight className="h-3 w-3 shrink-0" />}
+                <Link
+                  to={`/issues/${ancestor.identifier ?? ancestor.id}`}
+                  state={location.state}
+                  className="hover:text-foreground transition-colors truncate max-w-[200px]"
+                  title={ancestor.title}
+                >
+                  {ancestor.title}
+                </Link>
+              </span>
+            ))}
+            <ChevronRight className="h-3 w-3 shrink-0" />
+            <span className="text-foreground/60 truncate max-w-[200px]">{issue.title}</span>
+          </nav>
+        )}
 
-      {issue.hiddenAt && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          <EyeOff className="h-4 w-4 shrink-0" />
-          This issue is hidden
-        </div>
-      )}
+        {issue.hiddenAt && (
+          <div className="flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <EyeOff className="h-4 w-4 shrink-0" />
+            This issue is hidden
+          </div>
+        )}
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <StatusIcon
             status={issue.status}
             onChange={(status) => updateIssue.mutate({ status })}
@@ -848,31 +861,33 @@ export function IssueDetail() {
             </PopoverContent>
             </Popover>
           </div>
+          </div>
+
+          <InlineEditor
+            value={issue.title}
+            onSave={(title) => updateIssue.mutateAsync({ title })}
+            as="h2"
+            className="text-2xl font-semibold tracking-tight sm:text-[2rem]"
+          />
+
+          <InlineEditor
+            value={issue.description ?? ""}
+            onSave={(description) => updateIssue.mutateAsync({ description })}
+            as="p"
+            className="max-w-3xl text-[15px] leading-7 text-foreground"
+            placeholder="Add a description..."
+            multiline
+            mentions={mentionOptions}
+            imageUploadHandler={async (file) => {
+              const attachment = await uploadAttachment.mutateAsync(file);
+              return attachment.contentPath;
+            }}
+          />
         </div>
+      </section>
 
-        <InlineEditor
-          value={issue.title}
-          onSave={(title) => updateIssue.mutateAsync({ title })}
-          as="h2"
-          className="text-xl font-bold"
-        />
-
-        <InlineEditor
-          value={issue.description ?? ""}
-          onSave={(description) => updateIssue.mutateAsync({ description })}
-          as="p"
-          className="text-[15px] leading-7 text-foreground"
-          placeholder="Add a description..."
-          multiline
-          mentions={mentionOptions}
-          imageUploadHandler={async (file) => {
-            const attachment = await uploadAttachment.mutateAsync(file);
-            return attachment.contentPath;
-          }}
-        />
-      </div>
-
-      <PluginSlotOutlet
+      <div className="flex flex-wrap gap-2">
+        <PluginSlotOutlet
         slotTypes={["toolbarButton", "contextMenuItem"]}
         entityType="issue"
         context={{
@@ -884,9 +899,9 @@ export function IssueDetail() {
         className="flex flex-wrap gap-2"
         itemClassName="inline-flex"
         missingBehavior="placeholder"
-      />
+        />
 
-      <PluginLauncherOutlet
+        <PluginLauncherOutlet
         placementZones={["toolbarButton"]}
         entityType="issue"
         context={{
@@ -897,113 +912,127 @@ export function IssueDetail() {
         }}
         className="flex flex-wrap gap-2"
         itemClassName="inline-flex"
-      />
+        />
+      </div>
 
-      <PluginSlotOutlet
-        slotTypes={["taskDetailView"]}
-        entityType="issue"
-        context={{
-          companyId: issue.companyId,
-          projectId: issue.projectId ?? null,
-          entityId: issue.id,
-          entityType: "issue",
-        }}
-        className="space-y-3"
-        itemClassName="rounded-lg border border-border p-3"
-        missingBehavior="placeholder"
-      />
+      {issueTaskDetailViewSlots.length > 0 ? (
+        <section className={`${shellClassName} p-4 sm:p-5 space-y-3`}>
+          <PluginSlotOutlet
+            slotTypes={["taskDetailView"]}
+            entityType="issue"
+            context={{
+              companyId: issue.companyId,
+              projectId: issue.projectId ?? null,
+              entityId: issue.id,
+              entityType: "issue",
+            }}
+            className="space-y-3"
+            itemClassName="rounded-lg border border-border p-3"
+            missingBehavior="placeholder"
+          />
+        </section>
+      ) : null}
 
-      <IssueDocumentsSection
-        issue={issue}
-        canDeleteDocuments={Boolean(session?.user?.id)}
-        mentions={mentionOptions}
-        imageUploadHandler={async (file) => {
-          const attachment = await uploadAttachment.mutateAsync(file);
-          return attachment.contentPath;
-        }}
-        extraActions={!hasAttachments ? attachmentUploadButton : undefined}
-      />
+      <section
+        className={cn(
+          shellClassName,
+          hasDocuments || hasAttachments ? "space-y-4 p-5 sm:p-6" : "p-4 sm:p-5",
+        )}
+      >
+        <IssueDocumentsSection
+          issue={issue}
+          canDeleteDocuments={Boolean(session?.user?.id)}
+          mentions={mentionOptions}
+          imageUploadHandler={async (file) => {
+            const attachment = await uploadAttachment.mutateAsync(file);
+            return attachment.contentPath;
+          }}
+          extraActions={!hasAttachments ? attachmentUploadButton : undefined}
+          compactWhenEmpty={!hasDocuments && !hasAttachments}
+        />
+      </section>
 
       {hasAttachments ? (
-        <div
-        className={cn(
-          "space-y-3 rounded-lg transition-colors",
-        )}
-        onDragEnter={(evt) => {
-          evt.preventDefault();
-          setAttachmentDragActive(true);
-        }}
-        onDragOver={(evt) => {
-          evt.preventDefault();
-          setAttachmentDragActive(true);
-        }}
-        onDragLeave={(evt) => {
-          if (evt.currentTarget.contains(evt.relatedTarget as Node | null)) return;
-          setAttachmentDragActive(false);
-        }}
-        onDrop={(evt) => void handleAttachmentDrop(evt)}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Attachments</h3>
-          {attachmentUploadButton}
-        </div>
-
-        {attachmentError && (
-          <p className="text-xs text-destructive">{attachmentError}</p>
-        )}
-
-        <div className="space-y-2">
-          {attachmentList.map((attachment) => (
-            <div key={attachment.id} className="border border-border rounded-md p-2">
-              <div className="flex items-center justify-between gap-2">
-                <a
-                  href={attachment.contentPath}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs hover:underline truncate"
-                  title={attachment.originalFilename ?? attachment.id}
-                >
-                  {attachment.originalFilename ?? attachment.id}
-                </a>
-                <button
-                  type="button"
-                  className="text-muted-foreground hover:text-destructive"
-                  onClick={() => deleteAttachment.mutate(attachment.id)}
-                  disabled={deleteAttachment.isPending}
-                  title="Delete attachment"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                {attachment.contentType} · {(attachment.byteSize / 1024).toFixed(1)} KB
-              </p>
-              {isImageAttachment(attachment) && (
-                <a href={attachment.contentPath} target="_blank" rel="noreferrer">
-                  <img
-                    src={attachment.contentPath}
-                    alt={attachment.originalFilename ?? "attachment"}
-                    className="mt-2 max-h-56 rounded border border-border object-contain bg-accent/10"
-                    loading="lazy"
-                  />
-                </a>
-              )}
+        <section
+          className={shellClassName}
+        >
+          <div
+            className="space-y-3 p-5 sm:p-6"
+            onDragEnter={(evt) => {
+              evt.preventDefault();
+              setAttachmentDragActive(true);
+            }}
+            onDragOver={(evt) => {
+              evt.preventDefault();
+              setAttachmentDragActive(true);
+            }}
+            onDragLeave={(evt) => {
+              if (evt.currentTarget.contains(evt.relatedTarget as Node | null)) return;
+              setAttachmentDragActive(false);
+            }}
+            onDrop={(evt) => void handleAttachmentDrop(evt)}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Attachments</h3>
+              {attachmentUploadButton}
             </div>
-          ))}
-        </div>
-        </div>
+
+            {attachmentError && (
+              <p className="text-xs text-destructive">{attachmentError}</p>
+            )}
+
+            <div className="space-y-2">
+              {attachmentList.map((attachment) => (
+                <div key={attachment.id} className="rounded-2xl border border-border/70 bg-background/50 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <a
+                      href={attachment.contentPath}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="truncate text-xs hover:underline"
+                      title={attachment.originalFilename ?? attachment.id}
+                    >
+                      {attachment.originalFilename ?? attachment.id}
+                    </a>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => deleteAttachment.mutate(attachment.id)}
+                      disabled={deleteAttachment.isPending}
+                      title="Delete attachment"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {attachment.contentType} · {(attachment.byteSize / 1024).toFixed(1)} KB
+                  </p>
+                  {isImageAttachment(attachment) && (
+                    <a href={attachment.contentPath} target="_blank" rel="noreferrer">
+                      <img
+                        src={attachment.contentPath}
+                        alt={attachment.originalFilename ?? "attachment"}
+                        className="mt-2 max-h-56 rounded-xl border border-border object-contain bg-accent/10"
+                        loading="lazy"
+                      />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       ) : null}
 
       <IssueWorkspaceCard
         issue={issue}
-        project={orderedProjects.find((p) => p.id === issue.projectId) ?? null}
+        project={issueProject}
         onUpdate={(data) => updateIssue.mutate(data)}
       />
 
-      <Separator />
-
+      <section className={`${shellClassName} overflow-hidden`}>
       <Tabs value={detailTab} onValueChange={setDetailTab} className="space-y-3">
-        <TabsList variant="line" className="w-full justify-start gap-1">
+        <TabsList variant="line" className="w-full justify-start gap-1 px-4 pt-3 sm:px-5">
           <TabsTrigger value="comments" className="gap-1.5">
             <MessageSquare className="h-3.5 w-3.5" />
             Comments
@@ -1023,7 +1052,7 @@ export function IssueDetail() {
           ))}
         </TabsList>
 
-        <TabsContent value="comments">
+        <TabsContent value="comments" className="px-4 pb-4 sm:px-5 sm:pb-5">
           <CommentThread
             comments={commentsWithRunMeta}
             linkedRuns={timelineRuns}
@@ -1055,7 +1084,7 @@ export function IssueDetail() {
           />
         </TabsContent>
 
-        <TabsContent value="subissues">
+        <TabsContent value="subissues" className="px-4 pb-4 sm:px-5 sm:pb-5">
           {childIssues.length === 0 ? (
             <p className="text-xs text-muted-foreground">No sub-issues.</p>
           ) : (
@@ -1087,7 +1116,7 @@ export function IssueDetail() {
           )}
         </TabsContent>
 
-        <TabsContent value="activity">
+        <TabsContent value="activity" className="px-4 pb-4 sm:px-5 sm:pb-5">
           {linkedRuns && linkedRuns.length > 0 && (
             <div className="mb-3 px-3 py-2 rounded-lg border border-border">
               <div className="text-sm font-medium text-muted-foreground mb-1">Cost Summary</div>
@@ -1128,7 +1157,7 @@ export function IssueDetail() {
         </TabsContent>
 
         {activePluginTab && (
-          <TabsContent value={activePluginTab.value}>
+          <TabsContent value={activePluginTab.value} className="px-4 pb-4 sm:px-5 sm:pb-5">
             <PluginSlotMount
               slot={activePluginTab.slot}
               context={{
@@ -1142,15 +1171,16 @@ export function IssueDetail() {
           </TabsContent>
         )}
       </Tabs>
+      </section>
 
       {linkedApprovals && linkedApprovals.length > 0 && (
         <Collapsible
           open={secondaryOpen.approvals}
           onOpenChange={(open) => setSecondaryOpen((prev) => ({ ...prev, approvals: open }))}
-          className="rounded-lg border border-border"
+          className="rounded-3xl border border-border/70 bg-background/35 backdrop-blur-sm overflow-hidden"
         >
-          <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2 text-left">
-            <span className="text-sm font-medium text-muted-foreground">
+          <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left">
+            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
               Linked Approvals ({linkedApprovals.length})
             </span>
             <ChevronDown
@@ -1158,12 +1188,12 @@ export function IssueDetail() {
             />
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="border-t border-border divide-y divide-border">
+            <div className="border-t border-border/70 divide-y divide-border/70">
               {linkedApprovals.map((approval) => (
                 <Link
                   key={approval.id}
                   to={`/approvals/${approval.id}`}
-                  className="flex items-center justify-between px-3 py-2 text-xs hover:bg-accent/20 transition-colors"
+                  className="flex items-center justify-between px-4 py-3 text-xs hover:bg-accent/20 transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <StatusBadge status={approval.status} />
