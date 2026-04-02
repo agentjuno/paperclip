@@ -169,6 +169,15 @@ function parseRequest(
   });
 }
 
+/**
+ * Resolve a patch field for nullable draft columns.
+ * - `undefined` → field was not in the PATCH body, keep existing DB value
+ * - any other value (including `null`) → use the patch value (clearing or updating)
+ */
+function resolvePatch<T>(patchValue: T | undefined, existing: T): T {
+  return patchValue !== undefined ? patchValue : existing;
+}
+
 function isCompanyLocked(row: LaunchRow) {
   return Boolean(row.deployedTokenAddress || row.deploymentUnknownAt);
 }
@@ -345,22 +354,22 @@ export function tokenLaunchService(db: Db) {
     const updated = await db
       .update(companyTokenLaunches)
       .set({
-        stage: patch.stage ?? launchRow.stage,
-        companyWebsiteUrl: patch.companyWebsiteUrl ?? launchRow.companyWebsiteUrl,
-        businessSummary: patch.businessSummary ?? launchRow.businessSummary,
-        tractionSummary: patch.tractionSummary ?? launchRow.tractionSummary,
-        launchRationale: patch.launchRationale ?? launchRow.launchRationale,
+        stage: resolvePatch(patch.stage, launchRow.stage),
+        companyWebsiteUrl: resolvePatch(patch.companyWebsiteUrl, launchRow.companyWebsiteUrl),
+        businessSummary: resolvePatch(patch.businessSummary, launchRow.businessSummary),
+        tractionSummary: resolvePatch(patch.tractionSummary, launchRow.tractionSummary),
+        launchRationale: resolvePatch(patch.launchRationale, launchRow.launchRationale),
         socialLinks: {
           ...normalizeSocialLinks(launchRow.socialLinks),
           ...(patch.socialLinks ?? {}),
         },
-        tokenName: patch.tokenName ?? launchRow.tokenName,
-        tokenSymbol: patch.tokenSymbol ?? launchRow.tokenSymbol,
-        tokenDescription: patch.tokenDescription ?? launchRow.tokenDescription,
-        imageUrl: patch.imageUrl ?? launchRow.imageUrl,
-        tweetUrl: patch.tweetUrl ?? launchRow.tweetUrl,
-        tokenWebsiteUrl: patch.tokenWebsiteUrl ?? launchRow.tokenWebsiteUrl,
-        selectedFeeWalletAddress: patch.selectedFeeWalletAddress ?? launchRow.selectedFeeWalletAddress,
+        tokenName: resolvePatch(patch.tokenName, launchRow.tokenName),
+        tokenSymbol: resolvePatch(patch.tokenSymbol, launchRow.tokenSymbol),
+        tokenDescription: resolvePatch(patch.tokenDescription, launchRow.tokenDescription),
+        imageUrl: resolvePatch(patch.imageUrl, launchRow.imageUrl),
+        tweetUrl: resolvePatch(patch.tweetUrl, launchRow.tweetUrl),
+        tokenWebsiteUrl: resolvePatch(patch.tokenWebsiteUrl, launchRow.tokenWebsiteUrl),
+        selectedFeeWalletAddress: resolvePatch(patch.selectedFeeWalletAddress, launchRow.selectedFeeWalletAddress),
         latestSimulationFingerprint: shouldClearSimulation ? null : launchRow.latestSimulationFingerprint,
         latestSimulation: shouldClearSimulation ? null : launchRow.latestSimulation,
         latestSimulationAt: shouldClearSimulation ? null : launchRow.latestSimulationAt,
