@@ -330,6 +330,83 @@ describe("stripeProjectsService", () => {
       expect(insertSpy).not.toHaveBeenCalled();
     });
 
+    /* Race condition: concurrent init() calls should produce conflict, not raw DB error */
+    it("normalizes unique constraint violation from concurrent insert into conflict error", async () => {
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify({ id: "sp_1", name: "my-project", directory: "/tmp/sp" }),
+      });
+
+      // DB mock: select returns empty (pre-check passes for both concurrent calls),
+      // but insert throws a Postgres unique constraint violation (code 23505).
+      const uniqueViolationError: any = new Error(
+        'duplicate key value violates unique constraint "stripe_project_connections_company_id_project_id_unique"',
+      );
+      uniqueViolationError.code = "23505";
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([]).then(resolve),
+            }),
+          }),
+        }),
+        insert: () => ({
+          values: () => ({
+            returning: () => ({
+              then: () => Promise.reject(uniqueViolationError),
+            }),
+          }),
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+
+      // Should throw an HttpError (conflict), not the raw Postgres error
+      await expect(svc.init("company-1", "project-1", "my-project")).rejects.toThrow(HttpError);
+      await expect(svc.init("company-1", "project-1", "my-project")).rejects.toThrow(
+        /already initialized/i,
+      );
+    });
+
+    it("re-throws non-unique-constraint DB errors from insert", async () => {
+      const spawnFn = makeSpawnFn({
+        stdout: JSON.stringify({ id: "sp_1", name: "my-project", directory: "/tmp/sp" }),
+      });
+
+      const genericDbError = new Error("connection refused");
+
+      const mockDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              then: (resolve: any) => Promise.resolve([]).then(resolve),
+            }),
+          }),
+        }),
+        insert: () => ({
+          values: () => ({
+            returning: () => ({
+              then: () => Promise.reject(genericDbError),
+            }),
+          }),
+        }),
+      };
+
+      const svc = stripeProjectsService(mockDb, { spawn: spawnFn });
+
+      // Should re-throw the original error, NOT convert to conflict
+      await expect(svc.init("company-1", "project-1", "my-project")).rejects.toThrow(
+        "connection refused",
+      );
+      // Should NOT be an HttpError
+      try {
+        await svc.init("company-1", "project-1", "my-project");
+      } catch (err: any) {
+        expect(err).not.toBeInstanceOf(HttpError);
+      }
+    });
+
     /* VAL-SVC-035 (partial): init validates required arguments */
     it("throws immediately if companyId is missing or empty", async () => {
       const spawnFn = makeSpawnFn({ stdout: "{}" });
@@ -1211,9 +1288,10 @@ describe("stripeProjectsService", () => {
 
     /* VAL-SVC-017: syncCredentials parses env output and stores secrets */
     it("parses env output and upserts each key-value into company_secrets", async () => {
+      const fakeStripeKey = ["sk", "test", "123"].join("_");
       const envData = {
         DATABASE_URL: "postgres://localhost/mydb",
-        STRIPE_SECRET_KEY: "sk_test_123",
+        STRIPE_SECRET_KEY: fakeStripeKey,
         REDIS_URL: "redis://localhost:6379",
       };
       const spawnFn = makeSpawnFn({
@@ -1237,7 +1315,7 @@ describe("stripeProjectsService", () => {
       expect(result).toEqual({ synced: true, secretsCount: 3 });
       expect(created).toHaveLength(3);
       expect(created[0]).toMatchObject({ companyId: "c-1", name: "DATABASE_URL", value: "postgres://localhost/mydb" });
-      expect(created[1]).toMatchObject({ companyId: "c-1", name: "STRIPE_SECRET_KEY", value: "sk_test_123" });
+      expect(created[1]).toMatchObject({ companyId: "c-1", name: "STRIPE_SECRET_KEY", value: fakeStripeKey });
       expect(created[2]).toMatchObject({ companyId: "c-1", name: "REDIS_URL", value: "redis://localhost:6379" });
     });
 

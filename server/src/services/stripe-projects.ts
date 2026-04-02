@@ -134,21 +134,33 @@ export function stripeProjectsService(
         cliOptions,
       )) as Record<string, unknown>;
 
-      // Store connection in DB
-      const row = await db
-        .insert(stripeProjectConnections)
-        .values({
-          companyId,
-          projectId,
-          stripeProjectName: name,
-          stripeProjectDir:
-            typeof cliResult.directory === "string"
-              ? cliResult.directory
-              : null,
-          status: "active",
-        })
-        .returning()
-        .then((rows) => rows[0]);
+      // Store connection in DB — wrap in try-catch to normalize unique
+      // constraint violations from concurrent requests into conflict errors.
+      let row: ConnectionRow;
+      try {
+        row = await db
+          .insert(stripeProjectConnections)
+          .values({
+            companyId,
+            projectId,
+            stripeProjectName: name,
+            stripeProjectDir:
+              typeof cliResult.directory === "string"
+                ? cliResult.directory
+                : null,
+            status: "active",
+          })
+          .returning()
+          .then((rows) => rows[0]);
+      } catch (err: unknown) {
+        // Catch unique constraint violations (Postgres error code 23505)
+        if (isUniqueViolation(err)) {
+          throw conflict(
+            `Stripe project already initialized for this company and project`,
+          );
+        }
+        throw err;
+      }
 
       return toConnection(row);
     },
@@ -437,6 +449,26 @@ export function stripeProjectsService(
       return { rotated: true };
     },
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Unique-constraint violation detection                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Detects Postgres unique-constraint violations (error code "23505")
+ * regardless of the DB driver in use (node-postgres, PGlite, etc.).
+ */
+function isUniqueViolation(err: unknown): boolean {
+  if (err == null || typeof err !== "object") return false;
+  const obj = err as Record<string, unknown>;
+  // node-postgres / PGlite expose `code` directly
+  if (obj.code === "23505") return true;
+  // Some drivers wrap the PG error in a `cause` or `detail` field
+  if (typeof obj.message === "string" && /unique.*constraint|duplicate key/i.test(obj.message)) {
+    return true;
+  }
+  return false;
 }
 
 /* ------------------------------------------------------------------ */

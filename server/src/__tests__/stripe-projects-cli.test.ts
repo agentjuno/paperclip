@@ -297,10 +297,58 @@ describe("execStripeProjectsCmd", () => {
     }
   });
 
-  it("redacts API key patterns in log output", async () => {
+  it("redacts JSON-shaped credential key/value patterns in log output", async () => {
+    const logSpy = vi.fn();
+    const fakeApiKey = ["sk", "live", "PLACEHOLDER01234567"].join("_");
+    const spawnFn = makeSpawnFn({
+      stderr: `debug: got {"api_key": "${fakeApiKey}", "secret_key": "whsec_myvalue", "password": "p@ss", "token": "tok_xyz"}`,
+      stdout: JSON.stringify({ ok: true }),
+      exitCode: 0,
+    });
+
+    await execStripeProjectsCmd("env", [], {
+      spawn: spawnFn,
+      log: logSpy,
+    });
+
+    for (const call of logSpy.mock.calls) {
+      const logStr = JSON.stringify(call);
+      // None of the JSON-shaped credential values should appear in logs
+      expect(logStr).not.toContain(`"api_key": "${fakeApiKey}"`);
+      expect(logStr).not.toContain('"secret_key": "whsec_myvalue"');
+      expect(logStr).not.toContain('"password": "p@ss"');
+      expect(logStr).not.toContain('"token": "tok_xyz"');
+    }
+  });
+
+  it("redacts JSON-shaped 'secret' patterns in log stderr", async () => {
     const logSpy = vi.fn();
     const spawnFn = makeSpawnFn({
-      stderr: "Error: Invalid API key: sk_live_abcdef1234567890",
+      stderr: 'Error: invalid config {"secret": "my_secret_value_here", "credential": "cred_abc"}',
+      exitCode: 1,
+    });
+
+    try {
+      await execStripeProjectsCmd("status", [], {
+        spawn: spawnFn,
+        log: logSpy,
+      });
+    } catch {
+      // expected to throw
+    }
+
+    for (const call of logSpy.mock.calls) {
+      const logStr = JSON.stringify(call);
+      expect(logStr).not.toContain('"secret": "my_secret_value_here"');
+      expect(logStr).not.toContain('"credential": "cred_abc"');
+    }
+  });
+
+  it("redacts API key patterns in log output", async () => {
+    const logSpy = vi.fn();
+    const fakeKey = ["sk", "live", "abcdef1234567890"].join("_");
+    const spawnFn = makeSpawnFn({
+      stderr: `Error: Invalid API key: ${fakeKey}`,
       exitCode: 1,
     });
 
@@ -316,7 +364,7 @@ describe("execStripeProjectsCmd", () => {
     // Log calls must not contain the raw API key
     for (const call of logSpy.mock.calls) {
       const logStr = JSON.stringify(call);
-      expect(logStr).not.toContain("sk_live_abcdef1234567890");
+      expect(logStr).not.toContain(fakeKey);
     }
   });
 

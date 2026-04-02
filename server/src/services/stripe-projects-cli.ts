@@ -43,9 +43,11 @@ const CREDENTIAL_PATTERNS: RegExp[] = [
   /pk_test_[A-Za-z0-9]{10,}/g,
   /rk_live_[A-Za-z0-9]{10,}/g,
   /rk_test_[A-Za-z0-9]{10,}/g,
-  // Generic API key patterns
+  // Generic API key patterns (plain key=value and key: value)
   /api[_-]?key[=: ]+\S+/gi,
   /secret[=: ]+\S+/gi,
+  // JSON-shaped key/value credential patterns ("api_key": "...", "secret": "...", etc.)
+  /"(?:api[_-]?key|secret(?:[_-]?key)?|password|token|credential)"\s*:\s*"[^"]*"/gi,
   // Connection strings with credentials
   /(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^\s]+/gi,
   // Bearer tokens
