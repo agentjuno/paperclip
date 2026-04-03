@@ -706,3 +706,16 @@ export type StripeProjectConnectionStatus = (typeof STRIPE_PROJECT_CONNECTION_ST
 
 export const STRIPE_PROVISIONED_SERVICE_STATUSES = ["active", "provisioning", "error", "removed"] as const;
 export type StripeProvisionedServiceStatus = (typeof STRIPE_PROVISIONED_SERVICE_STATUSES)[number];
+
+export const STRIPE_SUBSCRIPTION_STATUSES = [
+  "none",
+  "active",
+  "trialing",
+  "past_due",
+  "canceled",
+  "unpaid",
+  "incomplete",
+  "incomplete_expired",
+  "paused",
+] as const;
+export type StripeSubscriptionStatus = (typeof STRIPE_SUBSCRIPTION_STATUSES)[number];
