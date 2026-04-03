@@ -2,6 +2,8 @@ import type {
   SubscriptionStatusResponse,
   CheckoutSessionResponse,
   PortalSessionResponse,
+  BillingUsageRow as SharedBillingUsageRow,
+  BillingUsageSummaryResponse,
 } from "@paperclipai/shared";
 import { api } from "./client";
 
@@ -57,5 +59,18 @@ export const billingApi = {
         const totalCostCents = rows.reduce((sum, r) => sum + r.costCents, 0);
         return { rows, totalTokens, totalCostCents };
       });
+  },
+
+  /**
+   * Fetch aggregated per-model usage across ALL companies owned by the
+   * authenticated user. Used by the billing tab for user-level billing view.
+   */
+  getAggregatedUsage: (from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const qs = params.toString();
+    const suffix = qs ? `?${qs}` : "";
+    return api.get<BillingUsageSummaryResponse>(`/stripe/billing-usage${suffix}`);
   },
 };

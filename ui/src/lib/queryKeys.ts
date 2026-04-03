@@ -141,6 +141,8 @@ export const queryKeys = {
     subscriptionStatus: ["billing", "subscription-status"] as const,
     usage: (companyId: string, from?: string, to?: string) =>
       ["billing", "usage", companyId, from, to] as const,
+    aggregatedUsage: (from?: string, to?: string) =>
+      ["billing", "aggregated-usage", from, to] as const,
   },
   skills: {
     available: ["skills", "available"] as const,

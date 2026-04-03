@@ -343,6 +343,8 @@ export type {
   SubscriptionStatusResponse,
   CheckoutSessionResponse,
   PortalSessionResponse,
+  BillingUsageRow,
+  BillingUsageSummaryResponse,
 } from "./types/index.js";
 
 export {

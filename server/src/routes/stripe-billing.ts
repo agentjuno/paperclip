@@ -207,5 +207,32 @@ export function stripeBillingRoutes(db: Db) {
     res.json(body);
   });
 
+  /* ================================================================ */
+  /*  GET /stripe/billing-usage                                        */
+  /*  Aggregated usage across ALL companies owned by the user.         */
+  /* ================================================================ */
+
+  router.get("/stripe/billing-usage", async (req, res) => {
+    const { privyUserId } = requireAuth(req);
+
+    // Parse optional date-range query params (from / to).
+    const fromRaw = req.query.from as string | undefined;
+    const toRaw = req.query.to as string | undefined;
+    const from = fromRaw ? new Date(fromRaw) : undefined;
+    const to = toRaw ? new Date(toRaw) : undefined;
+
+    if (from && isNaN(from.getTime())) {
+      res.status(400).json({ error: "invalid 'from' date" });
+      return;
+    }
+    if (to && isNaN(to.getTime())) {
+      res.status(400).json({ error: "invalid 'to' date" });
+      return;
+    }
+
+    const result = await billing.getAggregatedUsage(privyUserId, { from, to });
+    res.json(result);
+  });
+
   return router;
 }

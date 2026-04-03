@@ -206,6 +206,8 @@ export type {
   SubscriptionStatusResponse,
   CheckoutSessionResponse,
   PortalSessionResponse,
+  BillingUsageRow,
+  BillingUsageSummaryResponse,
 } from "./billing.js";
 export type {
   TokenLaunchWalletOption,

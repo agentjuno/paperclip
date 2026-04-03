@@ -12,8 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { billingApi } from "../api/billing";
-import type { BillingUsageRow } from "../api/billing";
-import { useCompany } from "../context/CompanyContext";
+import type { BillingUsageRow } from "@paperclipai/shared";
 import { useToast } from "../context/ToastContext";
 import { queryKeys } from "../lib/queryKeys";
 import { cn, formatCents, formatTokens } from "../lib/utils";
@@ -170,7 +169,6 @@ function UsageModelRow({ row }: { row: BillingUsageRow }) {
 /* ── Main BillingTab ── */
 
 export function BillingTab() {
-  const { selectedCompanyId } = useCompany();
   const { pushToast } = useToast();
 
   const monthRange = useMemo(() => currentMonthRange(), []);
@@ -186,20 +184,15 @@ export function BillingTab() {
     queryFn: billingApi.getSubscriptionStatus,
   });
 
-  /* ── Usage query (company-scoped, current month) ── */
+  /* ── Usage query (user-level aggregated, current month) ── */
   const {
     data: usageData,
     isLoading: usageLoading,
     error: usageError,
   } = useQuery({
-    queryKey: queryKeys.billing.usage(
-      selectedCompanyId ?? "__none__",
-      monthRange.from,
-      monthRange.to,
-    ),
+    queryKey: queryKeys.billing.aggregatedUsage(monthRange.from, monthRange.to),
     queryFn: () =>
-      billingApi.getUsageSummary(selectedCompanyId!, monthRange.from, monthRange.to),
-    enabled: !!selectedCompanyId,
+      billingApi.getAggregatedUsage(monthRange.from, monthRange.to),
   });
 
   /* ── Mutations ── */
