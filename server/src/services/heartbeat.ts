@@ -10,11 +10,13 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  companyMemberships,
   heartbeatRunEvents,
   heartbeatRuns,
   issues,
   projects,
   projectWorkspaces,
+  stripeCustomers,
 } from "@paperclipai/db";
 import { conflict, notFound } from "../errors.js";
 import { logger } from "../middleware/logger.js";
@@ -25,6 +27,8 @@ import type { AdapterExecutionResult, AdapterInvocationMeta, AdapterSessionCodec
 import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
 import { costService } from "./costs.js";
+import { meterEventService } from "./meter-events.js";
+import { isStripeBillingConfigured } from "./stripe-billing-config.js";
 import { companySkillService } from "./company-skills.js";
 import { budgetService, type BudgetEnforcementScope } from "./budgets.js";
 import { secretService } from "./secrets.js";
@@ -764,6 +768,95 @@ function resolveNextSessionState(input: {
     displayId,
     legacySessionId,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Stripe meter event fire-and-forget helper                          */
+/* ------------------------------------------------------------------ */
+
+async function reportStripeMeterEvent(
+  db: Db,
+  params: {
+    heartbeatRunId: string;
+    companyId: string;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    cachedInputTokens: number;
+  },
+): Promise<void> {
+  const { heartbeatRunId, companyId, model, inputTokens, outputTokens, cachedInputTokens } = params;
+
+  try {
+    // 1. Resolve company owner via company_memberships.
+    //    The owner is the member with membershipRole = 'owner', or the first
+    //    active member if no explicit owner (earliest created member).
+    const ownerRows = await db
+      .select({
+        principalId: companyMemberships.principalId,
+      })
+      .from(companyMemberships)
+      .where(
+        and(
+          eq(companyMemberships.companyId, companyId),
+          eq(companyMemberships.status, "active"),
+        ),
+      )
+      .orderBy(
+        // Prefer 'owner' role first, then fall back to earliest created
+        sql`CASE WHEN ${companyMemberships.membershipRole} = 'owner' THEN 0 ELSE 1 END`,
+        asc(companyMemberships.createdAt),
+      )
+      .limit(1);
+
+    if (ownerRows.length === 0) {
+      console.warn(
+        `[meter-events] No active company membership found for company ${companyId}, skipping meter event for run ${heartbeatRunId}`,
+      );
+      return;
+    }
+
+    const ownerPrivyUserId = ownerRows[0].principalId;
+
+    // 2. Look up the owner's Stripe customer from stripe_customers table.
+    const customerRows = await db
+      .select({
+        stripeCustomerId: stripeCustomers.stripeCustomerId,
+        subscriptionStatus: stripeCustomers.subscriptionStatus,
+      })
+      .from(stripeCustomers)
+      .where(eq(stripeCustomers.privyUserId, ownerPrivyUserId));
+
+    if (customerRows.length === 0) {
+      console.warn(
+        `[meter-events] No Stripe customer mapping for user ${ownerPrivyUserId}, skipping meter event for run ${heartbeatRunId}`,
+      );
+      return;
+    }
+
+    const { stripeCustomerId, subscriptionStatus } = customerRows[0];
+
+    // 3. Skip meter events if no active subscription.
+    if (subscriptionStatus !== "active" && subscriptionStatus !== "trialing") {
+      return;
+    }
+
+    // 4. Send meter events via the MeterEventService.
+    const meter = meterEventService();
+    await meter.reportTokenUsage({
+      heartbeatRunId,
+      stripeCustomerId,
+      model,
+      inputTokens,
+      outputTokens,
+      cachedInputTokens,
+    });
+  } catch (err) {
+    console.error(
+      `[meter-events] Error reporting meter event for run ${heartbeatRunId}:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
 }
 
 export function heartbeatService(db: Db) {
@@ -1894,6 +1987,24 @@ export function heartbeatService(db: Db) {
         costCents: additionalCostCents,
         occurredAt: new Date(),
       });
+
+      // Fire-and-forget: report token usage to Stripe meter events.
+      // Errors are caught and logged — never block the heartbeat run.
+      if (isStripeBillingConfigured() && (inputTokens > 0 || outputTokens > 0)) {
+        void reportStripeMeterEvent(db, {
+          heartbeatRunId: run.id,
+          companyId: agent.companyId,
+          model: result.model ?? "unknown",
+          inputTokens,
+          outputTokens,
+          cachedInputTokens,
+        }).catch((err) => {
+          console.error(
+            `[meter-events] Unhandled error reporting meter event for run ${run.id}:`,
+            err instanceof Error ? err.message : err,
+          );
+        });
+      }
     }
   }
 

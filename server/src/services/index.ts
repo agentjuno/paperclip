@@ -34,3 +34,4 @@ export { tokenLaunchService } from "./token-launch.js";
 export { execStripeProjectsCmd, StripeProjectsCliError, type ExecStripeProjectsCmdOptions, type StripeProjectsCliErrorCode } from "./stripe-projects-cli.js";
 export { stripeProjectsService } from "./stripe-projects.js";
 export { stripeBillingService } from "./stripe-billing.js";
+export { meterEventService } from "./meter-events.js";
