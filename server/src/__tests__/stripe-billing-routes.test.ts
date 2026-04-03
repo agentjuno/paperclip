@@ -144,10 +144,8 @@ describe("stripe-billing routes", () => {
       mockGetOrCreateCustomer.mockResolvedValue(noneCustomerRecord);
 
       mockRawRequest.mockResolvedValue({
-        data: {
-          id: "cs_test_session123",
-          url: "https://checkout.stripe.com/c/pay/cs_test_session123",
-        },
+        id: "cs_test_session123",
+        url: "https://checkout.stripe.com/c/pay/cs_test_session123",
       });
 
       const res = await request(app).post("/api/stripe/create-checkout");
@@ -163,10 +161,8 @@ describe("stripe-billing routes", () => {
       mockGetOrCreateCustomer.mockResolvedValue(noneCustomerRecord);
 
       mockRawRequest.mockResolvedValue({
-        data: {
-          id: "cs_test_linked",
-          url: "https://checkout.stripe.com/c/pay/cs_test_linked",
-        },
+        id: "cs_test_linked",
+        url: "https://checkout.stripe.com/c/pay/cs_test_linked",
       });
 
       await request(app).post("/api/stripe/create-checkout");
@@ -187,10 +183,8 @@ describe("stripe-billing routes", () => {
       mockGetOrCreateCustomer.mockResolvedValue(noneCustomerRecord);
 
       mockRawRequest.mockResolvedValue({
-        data: {
-          id: "cs_test_plan",
-          url: "https://checkout.stripe.com/c/pay/cs_test_plan",
-        },
+        id: "cs_test_plan",
+        url: "https://checkout.stripe.com/c/pay/cs_test_plan",
       });
 
       await request(app).post("/api/stripe/create-checkout");
@@ -212,10 +206,8 @@ describe("stripe-billing routes", () => {
       mockGetOrCreateCustomer.mockResolvedValue(noneCustomerRecord);
 
       mockRawRequest.mockResolvedValue({
-        data: {
-          id: "cs_test_version",
-          url: "https://checkout.stripe.com/c/pay/cs_test_version",
-        },
+        id: "cs_test_version",
+        url: "https://checkout.stripe.com/c/pay/cs_test_version",
       });
 
       await request(app).post("/api/stripe/create-checkout");

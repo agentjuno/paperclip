@@ -120,7 +120,7 @@ export function stripeBillingRoutes(db: Db) {
         },
       );
 
-      const session = rawResponse.data as Record<string, unknown>;
+      const session = rawResponse as Record<string, unknown>;
 
       const body: CheckoutSessionResponse = {
         url: session.url as string,
