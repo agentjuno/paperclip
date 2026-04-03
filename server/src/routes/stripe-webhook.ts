@@ -9,19 +9,6 @@ import {
 import { stripeBillingService } from "../services/index.js";
 
 /* ------------------------------------------------------------------ */
-/*  Lazy Stripe singleton                                              */
-/* ------------------------------------------------------------------ */
-
-let stripeInstance: Stripe | null = null;
-
-function getStripe(): Stripe {
-  if (!stripeInstance) {
-    stripeInstance = new Stripe(getStripeSecretKey());
-  }
-  return stripeInstance;
-}
-
-/* ------------------------------------------------------------------ */
 /*  Subscription event types we handle                                 */
 /* ------------------------------------------------------------------ */
 
@@ -46,6 +33,7 @@ const SUBSCRIPTION_EVENTS = new Set([
 export function stripeWebhookRoute(db: Db) {
   const router = Router();
   const billing = stripeBillingService(db);
+  const stripe = new Stripe(getStripeSecretKey());
 
   router.post("/stripe/webhook", async (req, res) => {
     /* ------------------------------------------------------------ */
@@ -60,7 +48,6 @@ export function stripeWebhookRoute(db: Db) {
 
     let event: Stripe.Event;
     try {
-      const stripe = getStripe();
       const rawBody = (req as unknown as { rawBody: Buffer }).rawBody;
       event = stripe.webhooks.constructEvent(
         rawBody,
