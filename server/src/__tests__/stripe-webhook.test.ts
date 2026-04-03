@@ -192,7 +192,7 @@ describe("stripe webhook handler", () => {
       );
     });
 
-    it("handles trialing status on subscription creation", async () => {
+    it("forces active status even when Stripe reports trialing on creation", async () => {
       const app = await createApp();
       const event = subscriptionEvent("customer.subscription.created", {
         status: "trialing",
@@ -207,10 +207,11 @@ describe("stripe webhook handler", () => {
         .send(event);
 
       expect(res.status).toBe(200);
+      // subscription.created always forces 'active' regardless of event status
       expect(mockUpdateSubscriptionStatus).toHaveBeenCalledWith(
         "cus_test_abc",
         "sub_test_123",
-        "trialing",
+        "active",
       );
     });
   });

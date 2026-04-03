@@ -90,10 +90,15 @@ export function stripeWebhookRoute(db: Db) {
 
         // For deletion events, always set status to "canceled" regardless
         // of what Stripe reports — this ensures the local state is clear.
+        // For creation events, always set status to "active" — a newly
+        // created subscription should be treated as active regardless of
+        // what Stripe reports (e.g. trialing).
         const status: StripeSubscriptionStatus =
           event.type === "customer.subscription.deleted"
             ? "canceled"
-            : (subscription.status as StripeSubscriptionStatus);
+            : event.type === "customer.subscription.created"
+              ? "active"
+              : (subscription.status as StripeSubscriptionStatus);
 
         await billing.updateSubscriptionStatus(
           stripeCustomerId,
