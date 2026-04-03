@@ -140,6 +140,8 @@ export {
   STRIPE_PROVISIONED_SERVICE_STATUSES,
   type StripeProjectConnectionStatus,
   type StripeProvisionedServiceStatus,
+  STRIPE_SUBSCRIPTION_STATUSES,
+  type StripeSubscriptionStatus,
 } from "./constants.js";
 
 export type {
@@ -336,6 +338,11 @@ export type {
   StripeProjectStatus,
   StripeSyncResult,
   StripeRotateResult,
+  StripeCustomerRecord,
+  UpsertStripeCustomerInput,
+  SubscriptionStatusResponse,
+  CheckoutSessionResponse,
+  PortalSessionResponse,
 } from "./types/index.js";
 
 export {
