@@ -16,3 +16,4 @@ export { llmRoutes } from "./llms.js";
 export { accessRoutes } from "./access.js";
 export { instanceSettingsRoutes } from "./instance-settings.js";
 export { stripeBillingRoutes } from "./stripe-billing.js";
+export { stripeWebhookRoute } from "./stripe-webhook.js";
