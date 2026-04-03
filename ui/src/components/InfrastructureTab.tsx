@@ -151,6 +151,12 @@ export function InfrastructureTab({
   } = useQuery({
     queryKey: queryKeys.stripeProjects.services(companyId, projectId),
     queryFn: () => stripeProjectsApi.listServices(companyId, projectId),
+    retry: (failureCount, err) => {
+      // Don't retry 409 (not initialized) — it's an expected state, not a transient error
+      if (err && ("status" in err && (err as any).status === 409)) return false;
+      if (err && (err as Error).message?.toLowerCase().includes("not initialized")) return false;
+      return failureCount < 3;
+    },
   });
 
   const syncMutation = useMutation({
@@ -198,7 +204,9 @@ export function InfrastructureTab({
 
   /* ── Detect Stripe-not-initialized (409) ── */
   const isNotInitialized =
-    error instanceof ApiError && error.status === 409;
+    !!error &&
+    ((error as any).status === 409 ||
+      (error as Error).message?.toLowerCase().includes("not initialized"));
 
   /* ── CEO agent lookup (only when not initialized) ── */
   const { data: agents } = useQuery({
@@ -215,7 +223,17 @@ export function InfrastructureTab({
       issuesApi.create(companyId, {
         title: "Initialize Stripe project infrastructure",
         description:
-          "The Infrastructure tab requires Stripe project initialization. Please run the Stripe CLI setup to connect this project.",
+          "The Infrastructure tab requires Stripe project initialization.\n\n" +
+          "**IMPORTANT: You MUST use the Paperclip API to initialize, not the Stripe CLI directly.**\n\n" +
+          "Run this API call from your workspace:\n" +
+          "```\n" +
+          `curl -s -X POST -H "Authorization: Bearer $PAPERCLIP_API_KEY" ` +
+          `-H "Content-Type: application/json" ` +
+          `"$PAPERCLIP_API_URL/companies/${companyId}/projects/${projectId}/stripe-projects/init" ` +
+          `-d '{"name": "<project-name>"}'\n` +
+          "```\n\n" +
+          "Replace `<project-name>` with a short slug for this project. " +
+          "This registers the Stripe connection in the database so the Infrastructure tab can display services.",
         projectId,
         assigneeAgentId: ceoAgent?.id ?? null,
         status: "todo",
