@@ -29,6 +29,7 @@ import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } fr
 import { costService } from "./costs.js";
 import { meterEventService } from "./meter-events.js";
 import { isStripeBillingConfigured } from "./stripe-billing-config.js";
+import { checkSubscriptionAccess } from "./subscription-gating.js";
 import { companySkillService } from "./company-skills.js";
 import { budgetService, type BudgetEnforcementScope } from "./budgets.js";
 import { secretService } from "./secrets.js";
@@ -1744,6 +1745,13 @@ export function heartbeatService(db: Db) {
       return null;
     }
 
+    // Subscription-based access gating (local DB lookup only, no Stripe API call).
+    const subscriptionBlock = await checkSubscriptionAccess(db, run.companyId);
+    if (subscriptionBlock) {
+      await cancelRunInternal(run.id, subscriptionBlock);
+      return null;
+    }
+
     const claimedAt = new Date();
     const claimed = await db
       .update(heartbeatRuns)
@@ -3160,6 +3168,13 @@ export function heartbeatService(db: Db) {
         scopeType: budgetBlock.scopeType,
         scopeId: budgetBlock.scopeId,
       });
+    }
+
+    // Subscription-based access gating (local DB lookup only, no Stripe API call).
+    const subscriptionBlock = await checkSubscriptionAccess(db, agent.companyId);
+    if (subscriptionBlock) {
+      await writeSkippedRequest("subscription.blocked");
+      throw conflict(subscriptionBlock);
     }
 
     if (
