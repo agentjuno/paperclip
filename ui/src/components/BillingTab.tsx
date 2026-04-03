@@ -232,10 +232,11 @@ export function BillingTab() {
   }
 
   const status = subscriptionData?.status ?? "none";
+  const hasSubscription = !!subscriptionData?.subscriptionId;
   const isActive = status === "active" || status === "trialing";
 
-  /* ── No subscription ── */
-  if (!isActive) {
+  /* ── No subscription at all ── */
+  if (status === "none" && !hasSubscription) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">

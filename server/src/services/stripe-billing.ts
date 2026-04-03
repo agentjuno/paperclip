@@ -193,7 +193,10 @@ export function stripeBillingService(db: Db) {
     privyUserId: string,
     range?: { from?: Date; to?: Date },
   ): Promise<BillingUsageSummaryResponse> {
-    // 1. Resolve all companies where this user is an active member.
+    // 1. Resolve all companies where this user is an active OWNER.
+    //    Only aggregate usage from companies the user owns (not just any
+    //    membership) to prevent including usage from companies the user
+    //    is only a member of.
     const memberRows = await db
       .select({ companyId: companyMemberships.companyId })
       .from(companyMemberships)
@@ -201,6 +204,7 @@ export function stripeBillingService(db: Db) {
         and(
           eq(companyMemberships.principalId, privyUserId),
           eq(companyMemberships.status, "active"),
+          eq(companyMemberships.membershipRole, "owner"),
         ),
       );
 
