@@ -108,8 +108,9 @@ export function stripeBillingRoutes(db: Db) {
         "/v1/checkout/sessions",
         {
           customer: customer.stripeCustomerId,
-          "checkout_items[0][pricing_plan]": pricingPlanId,
           "checkout_items[0][type]": "pricing_plan_subscription_item",
+          "checkout_items[0][pricing_plan_subscription_item][pricing_plan]":
+            pricingPlanId,
           success_url: successUrl,
           cancel_url: cancelUrl,
         },

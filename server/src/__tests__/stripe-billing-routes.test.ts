@@ -193,8 +193,9 @@ describe("stripe-billing routes", () => {
         "POST",
         "/v1/checkout/sessions",
         expect.objectContaining({
-          "checkout_items[0][pricing_plan]": "bpp_test_mock_plan",
           "checkout_items[0][type]": "pricing_plan_subscription_item",
+          "checkout_items[0][pricing_plan_subscription_item][pricing_plan]":
+            "bpp_test_mock_plan",
         }),
         expect.any(Object),
       );
