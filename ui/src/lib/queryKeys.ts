@@ -137,6 +137,11 @@ export const queryKeys = {
     status: (companyId: string, projectId: string) =>
       ["stripe-projects", "status", companyId, projectId] as const,
   },
+  billing: {
+    subscriptionStatus: ["billing", "subscription-status"] as const,
+    usage: (companyId: string, from?: string, to?: string) =>
+      ["billing", "usage", companyId, from, to] as const,
+  },
   skills: {
     available: ["skills", "available"] as const,
   },

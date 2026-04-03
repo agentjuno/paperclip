@@ -18,3 +18,4 @@ export { sidebarBadgesApi } from "./sidebarBadges";
 export { companySkillsApi } from "./companySkills";
 export { tokenLaunchApi } from "./tokenLaunch";
 export { stripeProjectsApi } from "./stripe-projects";
+export { billingApi } from "./billing";
