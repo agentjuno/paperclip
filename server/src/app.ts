@@ -33,6 +33,7 @@ import { tokenLaunchRoutes } from "./routes/token-launch.js";
 import { pluginRoutes } from "./routes/plugins.js";
 import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
 import { stripeProjectRoutes } from "./routes/stripe-projects.js";
+import { stripeBillingRoutes } from "./routes/stripe-billing.js";
 import { applyUiBranding } from "./ui-branding.js";
 import { logger } from "./middleware/logger.js";
 import { DEFAULT_LOCAL_PLUGIN_DIR, pluginLoader } from "./services/plugin-loader.js";
@@ -171,6 +172,7 @@ export async function createApp(
   api.use(assetRoutes(db, opts.storageService));
   api.use(projectRoutes(db));
   api.use(stripeProjectRoutes(db));
+  api.use(stripeBillingRoutes(db));
   api.use(issueRoutes(db, opts.storageService));
   api.use(routineRoutes(db));
   api.use(executionWorkspaceRoutes(db));
