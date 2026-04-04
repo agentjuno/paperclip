@@ -50,6 +50,15 @@ export function getStripePricingPlanId(): string {
   return id;
 }
 
+/** Returns the Stripe pricing plan version ID (bppv_test_...) for checkout sessions. Throws if missing. */
+export function getStripePricingPlanVersion(): string {
+  const id = process.env.STRIPE_PRICING_PLAN_VERSION?.trim();
+  if (!id) {
+    throw new Error("Missing STRIPE_PRICING_PLAN_VERSION");
+  }
+  return id;
+}
+
 /** Returns true if Stripe billing is configured (STRIPE_SECRET_KEY is set). */
 export function isStripeBillingConfigured(): boolean {
   return Boolean(process.env.STRIPE_SECRET_KEY?.trim());

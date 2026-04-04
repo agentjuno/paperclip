@@ -1,31 +1,95 @@
 // @vitest-environment node
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "../context/ThemeContext";
 
-/**
- * BillingTab tests.
- *
- * Since the UI tests run in a node environment without a full DOM,
- * we verify the initial (loading) render and the API client module shape.
- * The interactive states (no-subscription, active, error) are verified
- * via agent-browser manual checks against the running app.
- */
+const mockUseQuery = vi.hoisted(() => vi.fn());
+const mockUseMutation = vi.hoisted(() => vi.fn());
+const mockPushToast = vi.hoisted(() => vi.fn());
+
+vi.mock("@tanstack/react-query", async () => {
+  const actual =
+    await vi.importActual<typeof import("@tanstack/react-query")>(
+      "@tanstack/react-query",
+    );
+
+  return {
+    ...actual,
+    useQuery: mockUseQuery,
+    useMutation: mockUseMutation,
+  };
+});
+
+vi.mock("../context/ToastContext", () => ({
+  useToast: () => ({
+    pushToast: mockPushToast,
+  }),
+}));
 
 describe("BillingTab", () => {
-  it("renders without crashing in SSR", async () => {
-    // Dynamically import to avoid circular issues with context providers
-    const { BillingTab } = await import("./BillingTab");
+  beforeEach(() => {
+    mockUseQuery.mockReset();
+    mockUseMutation.mockReset();
+    mockPushToast.mockReset();
 
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
+    mockUseMutation.mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
     });
+  });
 
-    // BillingTab uses useCompany and useToast, which need context.
-    // In SSR without those providers, we verify it exports correctly.
-    expect(typeof BillingTab).toBe("function");
+  it("shows the loading skeleton while subscription status is still pending", async () => {
+    mockUseQuery
+      .mockReturnValueOnce({
+        data: undefined,
+        isLoading: false,
+        isPending: true,
+        error: null,
+        refetch: vi.fn(),
+      })
+      .mockReturnValueOnce({
+        data: undefined,
+        isLoading: false,
+        isPending: false,
+        error: null,
+      });
+
+    const { BillingTab } = await import("./BillingTab");
+    const markup = renderToStaticMarkup(<BillingTab />);
+
+    expect(markup).toContain("billing-loading");
+    expect(markup).not.toContain("billing-no-subscription");
+  });
+
+  it('shows the subscribe CTA only after the status query resolves to "none"', async () => {
+    mockUseQuery
+      .mockReturnValueOnce({
+        data: {
+          status: "none",
+          stripeCustomerId: null,
+          subscriptionId: null,
+        },
+        isLoading: false,
+        isPending: false,
+        error: null,
+        refetch: vi.fn(),
+      })
+      .mockReturnValueOnce({
+        data: {
+          rows: [],
+          totalTokens: 0,
+          totalCostCents: 0,
+        },
+        isLoading: false,
+        isPending: false,
+        error: null,
+      });
+
+    const { BillingTab } = await import("./BillingTab");
+    const markup = renderToStaticMarkup(<BillingTab />);
+
+    expect(markup).toContain("billing-no-subscription");
+    expect(markup).not.toContain("billing-loading");
   });
 });
 
@@ -44,8 +108,7 @@ describe("BillingUsageSummary type contract", () => {
   it("getUsageSummary transforms rows into summary shape", async () => {
     const { billingApi } = await import("../api/billing");
 
-    // Verify the function is present - actual API call tested via integration
     expect(billingApi.getUsageSummary).toBeDefined();
-    expect(billingApi.getUsageSummary.length).toBeGreaterThanOrEqual(1); // at least companyId param
+    expect(billingApi.getUsageSummary.length).toBeGreaterThanOrEqual(1);
   });
 });

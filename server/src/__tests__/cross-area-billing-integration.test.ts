@@ -36,6 +36,7 @@ vi.mock("stripe", () => {
 vi.mock("../services/stripe-billing-config.js", () => ({
   getStripeSecretKey: () => "sk_test_mock_key",
   getStripePricingPlanId: () => "bpp_test_mock_plan",
+  getStripePricingPlanVersion: () => "bppv_test_mock_version",
   isStripeBillingConfigured: () => true,
 }));
 

@@ -35,6 +35,7 @@ vi.mock("stripe", () => {
 vi.mock("../services/stripe-billing-config.js", () => ({
   getStripeSecretKey: () => "sk_test_mock_key",
   getStripePricingPlanId: () => "bpp_test_mock_plan",
+  getStripePricingPlanVersion: () => "bppv_test_mock_version",
   isStripeBillingConfigured: () => true,
 }));
 
@@ -177,7 +178,7 @@ describe("stripe-billing routes", () => {
       );
     });
 
-    it("uses the correct pricing plan from config", async () => {
+    it("uses the correct pricing plan and version from config", async () => {
       const app = await createApp();
 
       mockGetOrCreateCustomer.mockResolvedValue(noneCustomerRecord);
@@ -196,6 +197,8 @@ describe("stripe-billing routes", () => {
           "checkout_items[0][type]": "pricing_plan_subscription_item",
           "checkout_items[0][pricing_plan_subscription_item][pricing_plan]":
             "bpp_test_mock_plan",
+          "checkout_items[0][pricing_plan_subscription_item][pricing_plan_version]":
+            "bppv_test_mock_version",
         }),
         expect.any(Object),
       );

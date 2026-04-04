@@ -177,6 +177,7 @@ export function BillingTab() {
   const {
     data: subscriptionData,
     isLoading: subLoading,
+    isPending: subPending,
     error: subError,
     refetch: refetchSub,
   } = useQuery({
@@ -217,7 +218,9 @@ export function BillingTab() {
   });
 
   /* ── Loading ── */
-  if (subLoading) {
+  const isSubscriptionLoading = subLoading || subPending;
+
+  if (isSubscriptionLoading) {
     return <BillingSkeleton />;
   }
 
@@ -236,7 +239,7 @@ export function BillingTab() {
   const isActive = status === "active" || status === "trialing";
 
   /* ── No subscription at all ── */
-  if (status === "none" && !hasSubscription) {
+  if (!isSubscriptionLoading && status === "none" && !hasSubscription) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">

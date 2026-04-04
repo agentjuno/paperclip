@@ -10,6 +10,7 @@ import { unauthorized } from "../errors.js";
 import {
   getStripeSecretKey,
   getStripePricingPlanId,
+  getStripePricingPlanVersion,
 } from "../services/stripe-billing-config.js";
 import { stripeBillingService } from "../services/index.js";
 
@@ -94,6 +95,7 @@ export function stripeBillingRoutes(db: Db) {
     // Create a Stripe Checkout session using the preview checkout_items API
     const stripe = getStripe();
     const pricingPlanId = getStripePricingPlanId();
+    const pricingPlanVersion = getStripePricingPlanVersion();
 
     const successUrl =
       process.env.STRIPE_CHECKOUT_SUCCESS_URL ||
@@ -111,6 +113,8 @@ export function stripeBillingRoutes(db: Db) {
           "checkout_items[0][type]": "pricing_plan_subscription_item",
           "checkout_items[0][pricing_plan_subscription_item][pricing_plan]":
             pricingPlanId,
+          "checkout_items[0][pricing_plan_subscription_item][pricing_plan_version]":
+            pricingPlanVersion,
           success_url: successUrl,
           cancel_url: cancelUrl,
         },
