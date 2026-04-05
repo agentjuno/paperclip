@@ -43,8 +43,8 @@ export function filterVisibleAgentAdapterTypes<T extends string>(
     return [...types];
   }
 
-  const allowedTypes = new Set<T>([
-    ...(RESTRICTED_VISIBLE_AGENT_ADAPTER_TYPES as readonly T[]),
+  const allowedTypes = new Set<string>([
+    ...RESTRICTED_VISIBLE_AGENT_ADAPTER_TYPES,
     ...(opts.preserveTypes ?? []),
   ]);
 

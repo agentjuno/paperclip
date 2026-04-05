@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, type ComponentType } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AdapterEnvironmentTestResult } from "@paperclipai/shared";
 import { useLocation, useNavigate, useParams } from "@/lib/router";
@@ -79,7 +79,17 @@ type AdapterType =
   | "http"
   | "openclaw_gateway";
 
-const PRIMARY_ONBOARDING_ADAPTER_OPTIONS = [
+type OnboardingAdapterOption = {
+  value: AdapterType;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  desc: string;
+  recommended?: boolean;
+  comingSoon?: boolean;
+  disabledLabel?: string;
+};
+
+const PRIMARY_ONBOARDING_ADAPTER_OPTIONS: readonly OnboardingAdapterOption[] = [
   {
     value: "claude_local" as const,
     label: "Claude Code",
@@ -103,7 +113,7 @@ const PRIMARY_ONBOARDING_ADAPTER_OPTIONS = [
   },
 ] as const;
 
-const MORE_ONBOARDING_ADAPTER_OPTIONS = [
+const MORE_ONBOARDING_ADAPTER_OPTIONS: readonly OnboardingAdapterOption[] = [
   {
     value: "gemini_local" as const,
     label: "Gemini CLI",
