@@ -4,12 +4,17 @@ import type { AdapterEnvironmentTestResult } from "@paperclipai/shared";
 import { useLocation, useNavigate, useParams } from "@/lib/router";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { authApi } from "../api/auth";
 import { companiesApi } from "../api/companies";
 import { goalsApi } from "../api/goals";
 import { agentsApi } from "../api/agents";
 import { issuesApi } from "../api/issues";
 import { projectsApi } from "../api/projects";
 import { queryKeys } from "../lib/queryKeys";
+import {
+  filterVisibleAgentAdapterTypes,
+  getDefaultVisibleAgentAdapterType,
+} from "../lib/agent-adapter-visibility";
 import { Dialog, DialogPortal } from "@/components/ui/dialog";
 import {
   Popover,
@@ -74,6 +79,75 @@ type AdapterType =
   | "http"
   | "openclaw_gateway";
 
+const PRIMARY_ONBOARDING_ADAPTER_OPTIONS = [
+  {
+    value: "claude_local" as const,
+    label: "Claude Code",
+    icon: Sparkles,
+    desc: "Local Claude agent",
+    recommended: true,
+  },
+  {
+    value: "claude_platform" as const,
+    label: "Platform Agent",
+    icon: Sparkles,
+    desc: "Managed cloud agent",
+    recommended: false,
+  },
+  {
+    value: "codex_local" as const,
+    label: "Codex",
+    icon: Code,
+    desc: "Local Codex agent",
+    recommended: true,
+  },
+] as const;
+
+const MORE_ONBOARDING_ADAPTER_OPTIONS = [
+  {
+    value: "gemini_local" as const,
+    label: "Gemini CLI",
+    icon: Gem,
+    desc: "Local Gemini agent",
+  },
+  {
+    value: "opencode_local" as const,
+    label: "OpenCode",
+    icon: OpenCodeLogoIcon,
+    desc: "Local multi-provider agent",
+  },
+  {
+    value: "pi_local" as const,
+    label: "Pi",
+    icon: Terminal,
+    desc: "Local Pi agent",
+  },
+  {
+    value: "cursor" as const,
+    label: "Cursor",
+    icon: MousePointer2,
+    desc: "Local Cursor agent",
+  },
+  {
+    value: "hermes_local" as const,
+    label: "Hermes Agent",
+    icon: HermesIcon,
+    desc: "Local multi-provider agent",
+  },
+  {
+    value: "openclaw_gateway" as const,
+    label: "OpenClaw Gateway",
+    icon: Bot,
+    desc: "Hosted agent runtime with company-scoped BYOK",
+  },
+  {
+    value: "http" as const,
+    label: "HTTP",
+    icon: Globe,
+    desc: "Call your own remote endpoint",
+  },
+] as const;
+
 export function OnboardingWizard() {
   const { onboardingOpen, onboardingOptions, closeOnboarding } = useDialog();
   const { companies, setSelectedCompanyId, loading: companiesLoading } = useCompany();
@@ -114,7 +188,7 @@ export function OnboardingWizard() {
 
   // Step 2
   const [agentName, setAgentName] = useState("CEO");
-  const [adapterType, setAdapterType] = useState<AdapterType>("openclaw_gateway");
+  const [adapterType, setAdapterType] = useState<AdapterType>("claude_local");
   const [model, setModel] = useState("");
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
@@ -158,10 +232,60 @@ export function OnboardingWizard() {
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
   const [createdIssueRef, setCreatedIssueRef] = useState<string | null>(null);
+  const { data: session, isLoading: sessionLoading } = useQuery({
+    queryKey: queryKeys.auth.session,
+    queryFn: () => authApi.getSession(),
+    enabled: effectiveOnboardingOpen,
+  });
+  const visibleAdapterTypes = useMemo(
+    () =>
+      filterVisibleAgentAdapterTypes(
+        [
+          ...PRIMARY_ONBOARDING_ADAPTER_OPTIONS.map((option) => option.value),
+          ...MORE_ONBOARDING_ADAPTER_OPTIONS.map((option) => option.value),
+        ],
+        session?.user.email ?? null,
+        { restrictWhenEmailMissing: !sessionLoading },
+      ) as AdapterType[],
+    [session?.user.email, sessionLoading],
+  );
+  const visibleAdapterTypeSet = useMemo(
+    () => new Set<AdapterType>(visibleAdapterTypes),
+    [visibleAdapterTypes],
+  );
+  const primaryAdapterOptions = useMemo(
+    () =>
+      PRIMARY_ONBOARDING_ADAPTER_OPTIONS.filter((option) =>
+        visibleAdapterTypeSet.has(option.value),
+      ),
+    [visibleAdapterTypeSet],
+  );
+  const moreAdapterOptions = useMemo(
+    () =>
+      MORE_ONBOARDING_ADAPTER_OPTIONS.filter((option) =>
+        visibleAdapterTypeSet.has(option.value),
+      ),
+    [visibleAdapterTypeSet],
+  );
+  const defaultVisibleAdapterType = useMemo(() => {
+    const preferred = getDefaultVisibleAgentAdapterType(session?.user.email ?? null, {
+      restrictWhenEmailMissing: !sessionLoading,
+    });
+    if (visibleAdapterTypeSet.has(preferred as AdapterType)) {
+      return preferred as AdapterType;
+    }
+    return primaryAdapterOptions[0]?.value ?? moreAdapterOptions[0]?.value ?? "claude_platform";
+  }, [session?.user.email, sessionLoading, visibleAdapterTypeSet, primaryAdapterOptions, moreAdapterOptions]);
 
   useEffect(() => {
     setRouteDismissed(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (moreAdapterOptions.length === 0 && showMoreAdapters) {
+      setShowMoreAdapters(false);
+    }
+  }, [moreAdapterOptions.length, showMoreAdapters]);
 
   // Sync step and company when onboarding opens with options.
   // Keep this independent from company-list refreshes so Step 1 completion
@@ -292,7 +416,7 @@ export function OnboardingWizard() {
     setBuildOnExisting(false);
     setExistingBusinessUrl("");
     setAgentName("CEO");
-    setAdapterType("claude_local");
+    setAdapterType(defaultVisibleAdapterType);
     setModel("");
     setCommand("");
     setArgs("");
@@ -311,6 +435,27 @@ export function OnboardingWizard() {
     setCreatedProjectId(null);
     setCreatedIssueRef(null);
   }
+
+  useEffect(() => {
+    if (visibleAdapterTypes.length === 0) return;
+    if (visibleAdapterTypeSet.has(adapterType)) return;
+
+    const nextType = defaultVisibleAdapterType;
+    setAdapterType(nextType);
+    if (nextType === "codex_local") {
+      setModel(DEFAULT_CODEX_LOCAL_MODEL);
+      return;
+    }
+    if (nextType === "gemini_local") {
+      setModel(DEFAULT_GEMINI_LOCAL_MODEL);
+      return;
+    }
+    if (nextType === "cursor") {
+      setModel(DEFAULT_CURSOR_LOCAL_MODEL);
+      return;
+    }
+    setModel("");
+  }, [adapterType, defaultVisibleAdapterType, visibleAdapterTypeSet, visibleAdapterTypes.length]);
 
   function handleClose() {
     reset();
@@ -825,29 +970,7 @@ export function OnboardingWizard() {
                       Adapter type
                     </label>
                     <div className="grid grid-cols-2 gap-2">
-                      {[
-                        {
-                          value: "claude_local" as const,
-                          label: "Claude Code",
-                          icon: Sparkles,
-                          desc: "Local Claude agent",
-                          recommended: true
-                        },
-                        {
-                          value: "claude_platform" as const,
-                          label: "Claude (platform)",
-                          icon: Sparkles,
-                          desc: "Platform-managed billing",
-                          recommended: false
-                        },
-                        {
-                          value: "codex_local" as const,
-                          label: "Codex",
-                          icon: Code,
-                          desc: "Local Codex agent",
-                          recommended: true
-                        }
-                      ].map((opt) => (
+                      {primaryAdapterOptions.map((opt) => (
                         <button
                           key={opt.value}
                           className={cn(
@@ -881,61 +1004,24 @@ export function OnboardingWizard() {
                       ))}
                     </div>
 
-                    <button
-                      className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => setShowMoreAdapters((v) => !v)}
-                    >
-                      <ChevronDown
-                        className={cn(
-                          "h-3 w-3 transition-transform",
-                          showMoreAdapters ? "rotate-0" : "-rotate-90"
-                        )}
-                      />
-                      More Agent Adapter Types
-                    </button>
+                    {moreAdapterOptions.length > 0 && (
+                      <button
+                        className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => setShowMoreAdapters((v) => !v)}
+                      >
+                        <ChevronDown
+                          className={cn(
+                            "h-3 w-3 transition-transform",
+                            showMoreAdapters ? "rotate-0" : "-rotate-90"
+                          )}
+                        />
+                        More Agent Adapter Types
+                      </button>
+                    )}
 
                     {showMoreAdapters && (
                       <div className="grid grid-cols-2 gap-2 mt-2">
-                        {[
-                          {
-                            value: "gemini_local" as const,
-                            label: "Gemini CLI",
-                            icon: Gem,
-                            desc: "Local Gemini agent"
-                          },
-                          {
-                            value: "opencode_local" as const,
-                            label: "OpenCode",
-                            icon: OpenCodeLogoIcon,
-                            desc: "Local multi-provider agent"
-                          },
-                          {
-                            value: "pi_local" as const,
-                            label: "Pi",
-                            icon: Terminal,
-                            desc: "Local Pi agent"
-                          },
-                          {
-                            value: "cursor" as const,
-                            label: "Cursor",
-                            icon: MousePointer2,
-                            desc: "Local Cursor agent"
-                          },
-                          {
-                            value: "hermes_local" as const,
-                            label: "Hermes Agent",
-                            icon: HermesIcon,
-                            desc: "Local multi-provider agent"
-                          },
-                          {
-                            value: "openclaw_gateway" as const,
-                            label: "OpenClaw Gateway",
-                            icon: Bot,
-                            desc: "Invoke OpenClaw via gateway protocol",
-                            comingSoon: true,
-                            disabledLabel: "Configure OpenClaw within the App"
-                          }
-                        ].map((opt) => (
+                        {moreAdapterOptions.map((opt) => (
                           <button
                             key={opt.value}
                             disabled={!!opt.comingSoon}

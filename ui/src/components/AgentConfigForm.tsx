@@ -58,6 +58,7 @@ import type { CreateConfigValues } from "@paperclipai/adapter-utils";
 
 type AgentConfigFormProps = {
   adapterModels?: AdapterModel[];
+  allowedAdapterTypes?: readonly CreateConfigValues["adapterType"][];
   onDirtyChange?: (dirty: boolean) => void;
   onSaveActionChange?: (save: (() => void) | null) => void;
   onCancelActionChange?: (cancel: (() => void) | null) => void;
@@ -171,12 +172,22 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const { mode, adapterModels: externalModels } = props;
   const isCreate = mode === "create";
   const cards = props.sectionLayout === "cards";
+  const allowedAdapterTypes = props.allowedAdapterTypes ?? AGENT_ADAPTER_TYPES;
   const showAdapterTypeField = props.showAdapterTypeField ?? true;
   const showAdapterTestEnvironmentButton = props.showAdapterTestEnvironmentButton ?? true;
   const showCreateRunPolicySection = props.showCreateRunPolicySection ?? true;
   const hideInstructionsFile = props.hideInstructionsFile ?? false;
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
+  const adapterDisplayList = useMemo(
+    () =>
+      allowedAdapterTypes.map((type) => ({
+        value: type,
+        label: adapterLabels[type] ?? type,
+        comingSoon: !ENABLED_ADAPTER_TYPES.has(type),
+      })),
+    [allowedAdapterTypes],
+  );
 
   const { data: availableSecrets = [] } = useQuery({
     queryKey: selectedCompanyId ? queryKeys.secrets.list(selectedCompanyId) : ["secrets", "none"],
@@ -581,6 +592,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
           {showAdapterTypeField && (
             <Field label="Adapter type" hint={help.adapterType}>
               <AdapterTypeDropdown
+                items={adapterDisplayList}
                 value={adapterType}
                 onChange={(t) => {
                   if (isCreate) {
@@ -1025,19 +1037,12 @@ function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmentTestRe
 
 const ENABLED_ADAPTER_TYPES = new Set(["claude_local", "claude_platform", "codex_local", "gemini_local", "opencode_local", "pi_local", "cursor", "hermes_local"]);
 
-/** Display list includes all real adapter types plus UI-only coming-soon entries. */
-const ADAPTER_DISPLAY_LIST: { value: string; label: string; comingSoon: boolean }[] = [
-  ...AGENT_ADAPTER_TYPES.map((t) => ({
-    value: t,
-    label: adapterLabels[t] ?? t,
-    comingSoon: !ENABLED_ADAPTER_TYPES.has(t),
-  })),
-];
-
 function AdapterTypeDropdown({
+  items,
   value,
   onChange,
 }: {
+  items: { value: string; label: string; comingSoon: boolean }[];
   value: string;
   onChange: (type: string) => void;
 }) {
@@ -1053,7 +1058,7 @@ function AdapterTypeDropdown({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1" align="start">
-        {ADAPTER_DISPLAY_LIST.map((item) => (
+        {items.map((item) => (
           <button
             key={item.value}
             disabled={item.comingSoon}

@@ -1,10 +1,12 @@
-import { useState, type ComponentType } from "react";
+import { useMemo, useState, type ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/router";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { authApi } from "../api/auth";
 import { agentsApi } from "../api/agents";
 import { queryKeys } from "../lib/queryKeys";
+import { filterVisibleAgentAdapterTypes } from "../lib/agent-adapter-visibility";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 
 type AdvancedAdapterType =
+  | "claude_platform"
   | "http"
   | "openclaw_gateway";
 
@@ -30,11 +33,17 @@ const ADVANCED_ADAPTER_OPTIONS: Array<{
   recommended?: boolean;
 }> = [
   {
+    value: "claude_platform",
+    label: "Platform Agent",
+    icon: Sparkles,
+    desc: "Managed cloud agent",
+    recommended: true,
+  },
+  {
     value: "openclaw_gateway",
     label: "OpenClaw Gateway",
     icon: Bot,
     desc: "Hosted agent runtime with company-scoped BYOK",
-    recommended: true,
   },
   {
     value: "http",
@@ -49,6 +58,11 @@ export function NewAgentDialog() {
   const { selectedCompanyId } = useCompany();
   const navigate = useNavigate();
   const [showAdvancedCards, setShowAdvancedCards] = useState(false);
+  const { data: session, isLoading: sessionLoading } = useQuery({
+    queryKey: queryKeys.auth.session,
+    queryFn: () => authApi.getSession(),
+    enabled: newAgentOpen,
+  });
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -57,6 +71,16 @@ export function NewAgentDialog() {
   });
 
   const ceoAgent = (agents ?? []).find((a) => a.role === "ceo");
+  const advancedAdapterOptions = useMemo(() => {
+    const visibleTypes = new Set(
+      filterVisibleAgentAdapterTypes(
+        ADVANCED_ADAPTER_OPTIONS.map((option) => option.value),
+        session?.user.email ?? null,
+        { restrictWhenEmailMissing: !sessionLoading },
+      ),
+    );
+    return ADVANCED_ADAPTER_OPTIONS.filter((option) => visibleTypes.has(option.value));
+  }, [session?.user.email, sessionLoading]);
 
   function handleAskCeo() {
     closeNewAgent();
@@ -153,7 +177,7 @@ export function NewAgentDialog() {
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                {ADVANCED_ADAPTER_OPTIONS.map((opt) => (
+                {advancedAdapterOptions.map((opt) => (
                   <button
                     key={opt.value}
                     className={cn(
