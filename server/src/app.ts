@@ -78,6 +78,7 @@ export async function createApp(
     bindHost: string;
     authReady: boolean;
     companyDeletionEnabled: boolean;
+    allowSelfServeCompanyCreation?: boolean;
     instanceId?: string;
     hostVersion?: string;
     localPluginDir?: string;
@@ -114,7 +115,7 @@ export async function createApp(
   app.use("/api", stripeWebhookRoute(db));
 
   // ZHC wallet-session auth bridge (runs before actorMiddleware)
-  if (opts.zhcSessionSecret) {
+  if (opts.zhcSessionSecret && !opts.allowSelfServeCompanyCreation) {
     app.use(
       zhcAuthBridge(db, { sessionSecret: opts.zhcSessionSecret }),
     );
@@ -171,7 +172,12 @@ export async function createApp(
       zhcBridgeEnabled: Boolean(opts.zhcSessionSecret),
     }),
   );
-  api.use("/companies", companyRoutes(db, opts.storageService));
+  api.use(
+    "/companies",
+    companyRoutes(db, opts.storageService, {
+      allowSelfServeCreation: opts.allowSelfServeCompanyCreation ?? false,
+    }),
+  );
   api.use(companySkillRoutes(db));
   api.use(agentRoutes(db));
   api.use(assetRoutes(db, opts.storageService));
