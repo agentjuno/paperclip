@@ -468,6 +468,7 @@ export async function startServer(): Promise<StartedServer> {
   let resolveSessionFromHeaders:
     | ((headers: Headers) => Promise<any | null>)
     | undefined;
+  let allowSelfServeCompanyCreation = false;
   if (config.deploymentMode === "local_trusted") {
     await ensureLocalTrustedBoardPrincipal(db as any);
   }
@@ -481,6 +482,7 @@ export async function startServer(): Promise<StartedServer> {
       logger.info("Using company session auth (COMPANY_SESSION_SECRET set)");
       resolveSession = (req) => resolveCompanySessionFromRequest(db as any, req);
       resolveSessionFromHeaders = (headers) => resolveCompanySessionFromHeaders(db as any, headers);
+      allowSelfServeCompanyCreation = true;
       authReady = true;
     } else {
       // Standard authenticated mode — use BetterAuth
@@ -551,6 +553,7 @@ export async function startServer(): Promise<StartedServer> {
     bindHost: config.host,
     authReady,
     companyDeletionEnabled: config.companyDeletionEnabled,
+    allowSelfServeCompanyCreation,
     betterAuthHandler,
     resolveSession,
     zhcSessionSecret: process.env.ZHC_GATING_SESSION_SECRET || undefined,

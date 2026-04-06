@@ -17,17 +17,23 @@ import {
   companyPortabilityService,
   companyService,
   logActivity,
+  stripeBillingService,
 } from "../services/index.js";
 import type { StorageService } from "../storage/types.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 
-export function companyRoutes(db: Db, storage?: StorageService) {
+export function companyRoutes(
+  db: Db,
+  storage?: StorageService,
+  opts: { allowSelfServeCreation?: boolean } = {},
+) {
   const router = Router();
   const svc = companyService(db);
   const agents = agentService(db);
   const portability = companyPortabilityService(db, storage);
   const access = accessService(db);
   const budgets = budgetService(db);
+  const billing = stripeBillingService(db);
 
   async function assertCanUpdateBranding(req: Request, companyId: string) {
     assertCompanyAccess(req, companyId);
@@ -212,7 +218,21 @@ export function companyRoutes(db: Db, storage?: StorageService) {
 
   router.post("/", validate(createCompanySchema), async (req, res) => {
     assertBoard(req);
-    if (!(req.actor.source === "local_implicit" || req.actor.isInstanceAdmin)) {
+    let allowCreate = req.actor.source === "local_implicit" || req.actor.isInstanceAdmin;
+
+    if (!allowCreate && opts.allowSelfServeCreation && req.actor.source === "session" && req.actor.userId) {
+      const customer = await billing.getCustomerByPrivyUserId(req.actor.userId);
+      const hasActiveSubscription =
+        customer?.subscriptionStatus === "active" || customer?.subscriptionStatus === "trialing";
+
+      if (!hasActiveSubscription) {
+        throw forbidden("Active subscription required");
+      }
+
+      allowCreate = true;
+    }
+
+    if (!allowCreate) {
       throw forbidden("Instance admin required");
     }
     const company = await svc.create(req.body);
