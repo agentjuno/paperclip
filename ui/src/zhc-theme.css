@@ -2,72 +2,24 @@
  * ZHC Institute Theme Override
  *
  * Overrides Paperclip's default Tailwind/shadcn theme to match the
- * zhc-nextjs visual identity: dark moody palette with warm sand/gold accents.
+ * zhc-nextjs visual identity while preserving Paperclip's built-in
+ * light and dark mode support.
  *
  * This file is imported AFTER index.css so it overrides the defaults.
  * It only touches CSS custom properties — no structural changes —
  * so upstream Paperclip updates remain merge-safe.
  */
 
-/* ── ZHC Design Tokens ── */
+/* ── Shared ZHC accents ── */
 :root {
-  --zhc-bg-primary: #0a0a0a;
-  --zhc-bg-secondary: #0f0f0f;
-  --zhc-bg-card: #131313;
-  --zhc-bg-elevated: #1a1a1a;
-  --zhc-text-primary: #f4f1e8;
-  --zhc-text-secondary: #b8af9e;
-  --zhc-text-muted: #7a7264;
   --zhc-accent-sand: #c6a862;
-  --zhc-accent-sand-dim: rgba(198, 168, 98, 0.1);
-  --zhc-border-subtle: rgba(255, 255, 255, 0.05);
-  --zhc-border-default: rgba(255, 255, 255, 0.1);
-  --zhc-border-strong: rgba(255, 255, 255, 0.18);
+  --zhc-accent-sand-dim: rgba(198, 168, 98, 0.25);
+  --zhc-accent-sand-strong: rgba(198, 168, 98, 0.4);
+  --zhc-scrollbar-track: color-mix(in oklab, var(--background) 92%, var(--foreground) 8%);
+  --zhc-selection-fg: var(--foreground);
 }
 
-/* ── Force dark mode — ZHC is always dark ── */
-:root,
-:root:not(.dark) {
-  color-scheme: dark;
-}
-
-/* ── Override Paperclip's light theme to ZHC dark ── */
-:root {
-  --background: oklch(0.07 0 0);           /* #0a0a0a */
-  --foreground: oklch(0.95 0.008 80);      /* #f4f1e8 warm off-white */
-  --card: oklch(0.10 0 0);                 /* #131313 */
-  --card-foreground: oklch(0.95 0.008 80);
-  --popover: oklch(0.12 0 0);             /* #1a1a1a */
-  --popover-foreground: oklch(0.95 0.008 80);
-  --primary: oklch(0.76 0.10 85);          /* #c6a862 sand/gold */
-  --primary-foreground: oklch(0.07 0 0);   /* dark text on gold */
-  --secondary: oklch(0.14 0 0);           /* #1a1a1a */
-  --secondary-foreground: oklch(0.95 0.008 80);
-  --muted: oklch(0.14 0 0);
-  --muted-foreground: oklch(0.52 0.02 70);/* #7a7264 */
-  --accent: oklch(0.76 0.10 85 / 0.10);   /* sand at 10% */
-  --accent-foreground: oklch(0.95 0.008 80);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.95 0.008 80);
-  --border: oklch(1 0 0 / 0.10);          /* white 10% */
-  --input: oklch(1 0 0 / 0.10);
-  --ring: oklch(0.76 0.10 85 / 0.40);     /* sand ring */
-  --chart-1: oklch(0.76 0.10 85);         /* sand */
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.06 0 0);             /* slightly darker than bg */
-  --sidebar-foreground: oklch(0.95 0.008 80);
-  --sidebar-primary: oklch(0.76 0.10 85);
-  --sidebar-primary-foreground: oklch(0.07 0 0);
-  --sidebar-accent: oklch(0.76 0.10 85 / 0.10);
-  --sidebar-accent-foreground: oklch(0.95 0.008 80);
-  --sidebar-border: oklch(1 0 0 / 0.05);
-  --sidebar-ring: oklch(0.76 0.10 85 / 0.40);
-}
-
-/* ── Dark class override (same values — ZHC is always dark) ── */
+/* ── Dark mode keeps the branded ZHC palette ── */
 .dark {
   --background: oklch(0.07 0 0);
   --foreground: oklch(0.95 0.008 80);
@@ -118,20 +70,20 @@
 }
 
 *::-webkit-scrollbar-track {
-  background: var(--zhc-bg-secondary);
+  background: var(--zhc-scrollbar-track);
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(198, 168, 98, 0.25);
+  background: var(--zhc-accent-sand-dim);
   border-radius: 4px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(198, 168, 98, 0.4);
+  background: var(--zhc-accent-sand-strong);
 }
 
 /* ── Selection color ── */
 ::selection {
   background: rgba(198, 168, 98, 0.3);
-  color: #f4f1e8;
+  color: var(--zhc-selection-fg);
 }
