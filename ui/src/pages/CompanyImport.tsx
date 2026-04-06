@@ -14,6 +14,10 @@ import { authApi } from "../api/auth";
 import { companiesApi } from "../api/companies";
 import { agentsApi } from "../api/agents";
 import { queryKeys } from "../lib/queryKeys";
+import {
+  filterVisibleAgentAdapterTypes,
+  getDefaultVisibleAgentAdapterType,
+} from "../lib/agent-adapter-visibility";
 import { getAgentOrderStorageKey, writeAgentOrder } from "../lib/agent-order";
 import { getProjectOrderStorageKey, writeProjectOrder } from "../lib/project-order";
 import { MarkdownBody } from "../components/MarkdownBody";
@@ -510,15 +514,6 @@ function ConflictResolutionList({
   );
 }
 
-// ── Adapter type options for import ───────────────────────────────────
-
-const IMPORT_ADAPTER_OPTIONS: { value: string; label: string }[] = listUIAdapters().map((adapter) => ({
-  value: adapter.type,
-  label: adapterLabels[adapter.type] ?? adapter.label,
-}));
-
-// ── Adapter picker for imported agents ───────────────────────────────
-
 interface AdapterPickerItem {
   slug: string;
   name: string;
@@ -527,6 +522,8 @@ interface AdapterPickerItem {
 
 function AdapterPickerList({
   agents,
+  adapterOptions,
+  allowedAdapterTypes,
   adapterOverrides,
   expandedSlugs,
   configValues,
@@ -535,6 +532,8 @@ function AdapterPickerList({
   onChangeConfig,
 }: {
   agents: AdapterPickerItem[];
+  adapterOptions: { value: string; label: string }[];
+  allowedAdapterTypes: CreateConfigValues["adapterType"][];
   adapterOverrides: Record<string, string>;
   expandedSlugs: Set<string>;
   configValues: Record<string, CreateConfigValues>;
@@ -555,7 +554,10 @@ function AdapterPickerList({
         </div>
         <div className="divide-y divide-border">
           {agents.map((agent) => {
-            const selectedType = adapterOverrides[agent.slug] ?? agent.adapterType;
+            const requestedType = adapterOverrides[agent.slug] ?? agent.adapterType;
+            const selectedType = adapterOptions.some((option) => option.value === requestedType)
+              ? requestedType
+              : (adapterOptions[0]?.value ?? requestedType);
             const isExpanded = expandedSlugs.has(agent.slug);
             const vals = configValues[agent.slug] ?? { ...defaultCreateValues, adapterType: selectedType };
 
@@ -577,7 +579,7 @@ function AdapterPickerList({
                     value={selectedType}
                     onChange={(e) => onChangeAdapter(agent.slug, e.target.value)}
                   >
-                    {IMPORT_ADAPTER_OPTIONS.map((opt) => (
+                    {adapterOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -603,6 +605,7 @@ function AdapterPickerList({
                       mode="create"
                       values={vals}
                       onChange={(patch) => onChangeConfig(agent.slug, patch)}
+                      allowedAdapterTypes={allowedAdapterTypes}
                       showAdapterTypeField={false}
                       showAdapterTestEnvironmentButton={false}
                       showCreateRunPolicySection={false}
@@ -653,11 +656,43 @@ export function CompanyImport() {
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
   const packageInputRef = useRef<HTMLInputElement | null>(null);
-  const { data: session } = useQuery({
+  const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: queryKeys.auth.session,
     queryFn: () => authApi.getSession(),
   });
   const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
+  const visibleImportAdapterTypes = useMemo(
+    () =>
+      filterVisibleAgentAdapterTypes(
+        listUIAdapters().map((adapter) => adapter.type as CreateConfigValues["adapterType"]),
+        session?.user.email ?? null,
+        { restrictWhenEmailMissing: !sessionLoading },
+      ) as CreateConfigValues["adapterType"][],
+    [session?.user.email, sessionLoading],
+  );
+  const visibleImportAdapterTypeSet = useMemo(
+    () => new Set<CreateConfigValues["adapterType"]>(visibleImportAdapterTypes),
+    [visibleImportAdapterTypes],
+  );
+  const importAdapterOptions = useMemo(
+    () =>
+      listUIAdapters()
+        .filter((adapter) => visibleImportAdapterTypeSet.has(adapter.type as CreateConfigValues["adapterType"]))
+        .map((adapter) => ({
+          value: adapter.type,
+          label: adapterLabels[adapter.type] ?? adapter.label,
+        })),
+    [visibleImportAdapterTypeSet],
+  );
+  const defaultVisibleAdapterType = useMemo(() => {
+    const preferred = getDefaultVisibleAgentAdapterType(session?.user.email ?? null, {
+      restrictWhenEmailMissing: !sessionLoading,
+    });
+    if (visibleImportAdapterTypeSet.has(preferred as CreateConfigValues["adapterType"])) {
+      return preferred as CreateConfigValues["adapterType"];
+    }
+    return visibleImportAdapterTypes[0] ?? defaultCreateValues.adapterType;
+  }, [session?.user.email, sessionLoading, visibleImportAdapterTypeSet, visibleImportAdapterTypes]);
 
   // Source state
   const [sourceMode, setSourceMode] = useState<"github" | "local">("github");
@@ -701,6 +736,13 @@ export function CompanyImport() {
     const ceo = companyAgents.find((a) => a.role === "ceo");
     return ceo?.adapterType ?? "claude_local";
   }, [companyAgents]);
+  const defaultImportAdapterType = useMemo(
+    () =>
+      visibleImportAdapterTypeSet.has(ceoAdapterType as CreateConfigValues["adapterType"])
+        ? (ceoAdapterType as CreateConfigValues["adapterType"])
+        : defaultVisibleAdapterType,
+    [ceoAdapterType, defaultVisibleAdapterType, visibleImportAdapterTypeSet],
+  );
 
   const localZipHelpText =
     "Upload a .zip exported directly from Paperclip. Re-zipped archives created by Finder, Explorer, or other zip tools may not import correctly.";
@@ -763,7 +805,7 @@ export function CompanyImport() {
       // Initialize adapter overrides — default all agents to the CEO's adapter type
       const defaultAdapters: Record<string, string> = {};
       for (const agent of result.manifest.agents) {
-        defaultAdapters[agent.slug] = ceoAdapterType;
+        defaultAdapters[agent.slug] = defaultImportAdapterType;
       }
       setAdapterOverrides(defaultAdapters);
       setAdapterExpandedSlugs(new Set());
@@ -1061,7 +1103,10 @@ export function CompanyImport() {
     if (adapterAgents.length === 0) return undefined;
     const overrides: Record<string, CompanyPortabilityAdapterOverride> = {};
     for (const agent of adapterAgents) {
-      const selectedType = adapterOverrides[agent.slug] ?? agent.adapterType;
+      const requestedType = adapterOverrides[agent.slug] ?? agent.adapterType;
+      const selectedType = visibleImportAdapterTypeSet.has(requestedType as CreateConfigValues["adapterType"])
+        ? requestedType
+        : defaultVisibleAdapterType;
       const configVals = adapterConfigValues[agent.slug];
       const override: CompanyPortabilityAdapterOverride = { adapterType: selectedType };
       if (configVals) {
@@ -1277,6 +1322,8 @@ export function CompanyImport() {
           {/* Adapter picker list */}
           <AdapterPickerList
             agents={adapterAgents}
+            adapterOptions={importAdapterOptions}
+            allowedAdapterTypes={visibleImportAdapterTypes}
             adapterOverrides={adapterOverrides}
             expandedSlugs={adapterExpandedSlugs}
             configValues={adapterConfigValues}

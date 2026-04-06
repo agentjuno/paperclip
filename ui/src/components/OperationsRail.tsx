@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Bot, CircleDot, FolderKanban, Radar } from "lucide-react";
-import type { Agent, Issue, Project } from "@paperclipai/shared";
+import { deriveProjectUrlKey, type ActivityEvent, type Agent, type Issue } from "@paperclipai/shared";
+import { AlertTriangle, Bot, CircleDot, FolderKanban, Radar, type LucideIcon } from "lucide-react";
 import { Link } from "@/lib/router";
 import { activityApi } from "../api/activity";
 import { agentsApi } from "../api/agents";
@@ -11,8 +11,58 @@ import { heartbeatsApi } from "../api/heartbeats";
 import { issuesApi } from "../api/issues";
 import { projectsApi } from "../api/projects";
 import { queryKeys } from "../lib/queryKeys";
-import { cn, issueUrl, projectUrl, relativeTime } from "../lib/utils";
-import { ActivityRow } from "./ActivityRow";
+import { cn, projectUrl, relativeTime } from "../lib/utils";
+
+type TickerTone = "summary" | "incident" | "live" | "portfolio" | "signal" | "routing";
+
+interface TickerItem {
+  key: string;
+  tone: TickerTone;
+  label: string;
+  text: string;
+  meta?: string;
+  to?: string | null;
+  icon: LucideIcon;
+}
+
+const TICKER_TONE_STYLES: Record<TickerTone, { chip: string; icon: string; label: string; meta: string }> = {
+  summary: {
+    chip: "border-slate-300/80 bg-slate-100/85 text-slate-900 dark:border-slate-400/20 dark:bg-slate-400/10 dark:text-slate-100",
+    icon: "text-slate-700 dark:text-slate-200",
+    label: "text-slate-600 dark:text-slate-300",
+    meta: "text-slate-700/75 dark:text-slate-200/70",
+  },
+  incident: {
+    chip: "border-red-300/80 bg-red-50/90 text-red-900 dark:border-red-500/25 dark:bg-red-500/12 dark:text-red-100",
+    icon: "text-red-700 dark:text-red-200",
+    label: "text-red-700 dark:text-red-200",
+    meta: "text-red-700/80 dark:text-red-200/70",
+  },
+  live: {
+    chip: "border-emerald-300/80 bg-emerald-50/90 text-emerald-950 dark:border-emerald-500/25 dark:bg-emerald-500/12 dark:text-emerald-100",
+    icon: "text-emerald-700 dark:text-emerald-200",
+    label: "text-emerald-700 dark:text-emerald-200",
+    meta: "text-emerald-800/75 dark:text-emerald-200/70",
+  },
+  portfolio: {
+    chip: "border-amber-300/80 bg-amber-50/90 text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/12 dark:text-amber-100",
+    icon: "text-amber-700 dark:text-amber-200",
+    label: "text-amber-700 dark:text-amber-200",
+    meta: "text-amber-800/75 dark:text-amber-200/70",
+  },
+  signal: {
+    chip: "border-cyan-300/80 bg-cyan-50/90 text-cyan-950 dark:border-cyan-500/25 dark:bg-cyan-500/12 dark:text-cyan-100",
+    icon: "text-cyan-700 dark:text-cyan-200",
+    label: "text-cyan-700 dark:text-cyan-200",
+    meta: "text-cyan-800/75 dark:text-cyan-200/70",
+  },
+  routing: {
+    chip: "border-blue-300/80 bg-blue-50/90 text-blue-950 dark:border-blue-500/25 dark:bg-blue-500/12 dark:text-blue-100",
+    icon: "text-blue-700 dark:text-blue-200",
+    label: "text-blue-700 dark:text-blue-200",
+    meta: "text-blue-800/75 dark:text-blue-200/70",
+  },
+};
 
 function formatLabel(value: string) {
   return value.replace(/_/g, " ");
@@ -22,7 +72,123 @@ function statText(value: number, label: string) {
   return `${value} ${label}${value === 1 ? "" : "s"}`;
 }
 
+function truncateText(value: string, maxLength: number) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+function formatActivityAction(action: string) {
+  const [, ...rest] = action.split(".");
+  return (rest.length > 0 ? rest : [action]).join(" ").replace(/_/g, " ");
+}
+
+function entityLink(entityType: string, entityId: string, name?: string | null): string | null {
+  switch (entityType) {
+    case "issue":
+      return `/issues/${name ?? entityId}`;
+    case "agent":
+      return `/agents/${entityId}`;
+    case "project":
+      return `/projects/${deriveProjectUrlKey(name, entityId)}`;
+    case "goal":
+      return `/goals/${entityId}`;
+    case "approval":
+      return `/approvals/${entityId}`;
+    default:
+      return null;
+  }
+}
+
+function resolveActivityLink(event: ActivityEvent, entityNameMap: Map<string, string>) {
+  const isHeartbeatEvent = event.entityType === "heartbeat_run";
+  const heartbeatAgentId = isHeartbeatEvent
+    ? (event.details as Record<string, unknown> | null)?.agentId as string | undefined
+    : undefined;
+
+  if (isHeartbeatEvent && heartbeatAgentId) {
+    return `/agents/${heartbeatAgentId}/runs/${event.entityId}`;
+  }
+
+  const name = entityNameMap.get(`${event.entityType}:${event.entityId}`);
+  return entityLink(event.entityType, event.entityId, name);
+}
+
+function resolveActivityActor(event: ActivityEvent, agentMap: Map<string, Agent>) {
+  if (event.actorType === "agent") {
+    return agentMap.get(event.actorId)?.name ?? "Agent";
+  }
+  if (event.actorType === "system") {
+    return "System";
+  }
+  if (event.actorType === "user") {
+    return "Board";
+  }
+  return event.actorId || "Unknown";
+}
+
+function resolveActivityEntity(
+  event: ActivityEvent,
+  entityNameMap: Map<string, string>,
+  agentMap: Map<string, Agent>,
+) {
+  if (event.entityType === "heartbeat_run") {
+    const heartbeatAgentId = (event.details as Record<string, unknown> | null)?.agentId as string | undefined;
+    return heartbeatAgentId ? `${agentMap.get(heartbeatAgentId)?.name ?? "Agent"} heartbeat` : "System heartbeat";
+  }
+
+  return entityNameMap.get(`${event.entityType}:${event.entityId}`) ?? formatLabel(event.entityType);
+}
+
+interface TickerChipProps {
+  item: TickerItem;
+  interactive?: boolean;
+  onEngage?: () => void;
+  onRelease?: () => void;
+}
+
+function TickerChip({ item, interactive = true, onEngage, onRelease }: TickerChipProps) {
+  const tone = TICKER_TONE_STYLES[item.tone];
+  const classes = cn(
+    "operations-ticker-chip paperclip-subpanel paperclip-subpanel-compact inline-flex h-8 items-center gap-2 rounded-[var(--paperclip-radius-compact)] px-3 text-[12px] leading-none whitespace-nowrap",
+    tone.chip,
+    interactive && item.to && "transition-transform duration-150 hover:-translate-y-px",
+    !interactive && "pointer-events-none select-none",
+  );
+
+  const content = (
+    <>
+      <item.icon className={cn("h-3.5 w-3.5 shrink-0", tone.icon)} />
+      <span className={cn("paperclip-kicker text-[0.58rem] tracking-[0.18em]", tone.label)}>{item.label}</span>
+      <span className="font-medium">{truncateText(item.text, 96)}</span>
+      {item.meta ? <span className={cn("text-[11px]", tone.meta)}>// {truncateText(item.meta, 72)}</span> : null}
+    </>
+  );
+
+  if (interactive && item.to) {
+    return (
+      <Link
+        to={item.to}
+        className={cn(classes, "no-underline")}
+        onMouseEnter={onEngage}
+        onMouseLeave={onRelease}
+        onFocus={onEngage}
+        onBlur={onRelease}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={classes} aria-hidden={!interactive || undefined}>
+      {content}
+    </div>
+  );
+}
+
 export function OperationsRail({ companyId }: { companyId: string | null | undefined }) {
+  const [tickerPaused, setTickerPaused] = useState(false);
   const { data: summary } = useQuery({
     queryKey: queryKeys.dashboard(companyId!),
     queryFn: () => dashboardApi.summary(companyId!),
@@ -73,13 +239,6 @@ export function OperationsRail({ companyId }: { companyId: string | null | undef
     }
     return map;
   }, [issues]);
-  const projectMap = useMemo(() => {
-    const map = new Map<string, Project>();
-    for (const project of visibleProjects) {
-      map.set(project.id, project);
-    }
-    return map;
-  }, [visibleProjects]);
   const agentMap = useMemo(() => {
     const map = new Map<string, Agent>();
     for (const agent of agents ?? []) {
@@ -117,198 +276,186 @@ export function OperationsRail({ companyId }: { companyId: string | null | undef
         .slice(0, 4),
     [visibleProjects],
   );
+  const openTaskCountByProject = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const issue of issues ?? []) {
+      if (!issue.projectId || issue.status === "done") continue;
+      map.set(issue.projectId, (map.get(issue.projectId) ?? 0) + 1);
+    }
+    return map;
+  }, [issues]);
+
   const activeRuns = liveRuns ?? [];
   const events = (activity ?? []).slice(0, 6);
+
+  const tickerItems = useMemo<TickerItem[]>(() => {
+    const items: TickerItem[] = [];
+
+    items.push({
+      key: "summary",
+      tone: "summary",
+      label: "Ops",
+      icon: Radar,
+      text: `${activeRuns.length} live now / ${summary?.tasks.inProgress ?? 0} tasks in progress / ${summary?.agents.active ?? 0} agents enabled`,
+      meta: summary ? `${statText(summary.tasks.open, "open task")} / ${summary.budgets.pendingApprovals} approvals pending` : undefined,
+    });
+
+    if (summary && summary.budgets.activeIncidents > 0) {
+      items.push({
+        key: "incident",
+        tone: "incident",
+        label: "Budget",
+        icon: AlertTriangle,
+        text: `${summary.budgets.activeIncidents} active incident${summary.budgets.activeIncidents === 1 ? "" : "s"} / ${summary.budgets.pausedAgents} paused agents`,
+        meta: `${summary.budgets.pendingApprovals} approvals need review`,
+      });
+    }
+
+    if (activeRuns.length === 0) {
+      items.push({
+        key: "live-empty",
+        tone: "live",
+        label: "Live",
+        icon: Radar,
+        text: "No active runs right now",
+        meta: "Waiting for the next heartbeat",
+      });
+    } else {
+      for (const run of activeRuns.slice(0, 4)) {
+        const issue = run.issueId ? issueMap.get(run.issueId) : null;
+        items.push({
+          key: run.id,
+          tone: "live",
+          label: "Live",
+          icon: Radar,
+          to: `/agents/${run.agentId}/runs/${run.id}`,
+          text: `${run.agentName} / ${issue ? `${issue.identifier ?? issue.id.slice(0, 8)} ${issue.title}` : run.triggerDetail ?? run.invocationSource}`,
+          meta: `${formatLabel(run.status)} / ${relativeTime(run.startedAt ?? run.createdAt)}`,
+        });
+      }
+    }
+
+    if (recentProjects.length === 0) {
+      items.push({
+        key: "projects-empty",
+        tone: "portfolio",
+        label: "Portfolio",
+        icon: FolderKanban,
+        to: "/projects",
+        text: "No projects yet",
+        meta: "Create a project to start routing work",
+      });
+    } else {
+      for (const project of recentProjects) {
+        items.push({
+          key: project.id,
+          tone: "portfolio",
+          label: "Portfolio",
+          icon: FolderKanban,
+          to: projectUrl(project),
+          text: `${project.name} / ${(openTaskCountByProject.get(project.id) ?? 0)} open tasks`,
+          meta: `${formatLabel(project.status)} / updated ${relativeTime(project.updatedAt)}`,
+        });
+      }
+    }
+
+    if (events.length === 0) {
+      items.push({
+        key: "activity-empty",
+        tone: "signal",
+        label: "Signal",
+        icon: CircleDot,
+        to: "/activity",
+        text: "No recent activity",
+        meta: "Board updates will surface here",
+      });
+    } else {
+      for (const event of events) {
+        const actorName = resolveActivityActor(event, agentMap);
+        const entityName = resolveActivityEntity(event, entityNameMap, agentMap);
+        const entityTitle = entityTitleMap.get(`${event.entityType}:${event.entityId}`);
+        items.push({
+          key: event.id,
+          tone: "signal",
+          label: "Signal",
+          icon: CircleDot,
+          to: resolveActivityLink(event, entityNameMap),
+          text: entityTitle ? `${entityName} / ${entityTitle}` : entityName,
+          meta: `${actorName} / ${formatActivityAction(event.action)} / ${relativeTime(event.createdAt)}`,
+        });
+      }
+    }
+
+    items.push({
+      key: "routing-issues",
+      tone: "routing",
+      label: "Route",
+      icon: CircleDot,
+      to: "/issues",
+      text: `Task board / ${summary ? statText(summary.tasks.open, "open task") : "Open work"}`,
+      meta: "Inspect the work queue",
+    });
+
+    items.push({
+      key: "routing-agents",
+      tone: "routing",
+      label: "Route",
+      icon: Bot,
+      to: "/agents/all",
+      text: `Virtual office / ${summary ? statText(summary.agents.active, "enabled agent") : "Crew roster"}`,
+      meta: "Jump into active crews",
+    });
+
+    return items;
+  }, [activeRuns, agentMap, entityNameMap, entityTitleMap, events, issueMap, openTaskCountByProject, recentProjects, summary]);
+
+  const tickerStyle = useMemo(
+    () =>
+      ({
+        "--operations-ticker-duration": `${Math.max(36, Math.min(96, tickerItems.length * 5))}s`,
+        animationPlayState: tickerPaused ? "paused" : "running",
+      }) as CSSProperties,
+    [tickerItems.length, tickerPaused],
+  );
 
   if (!companyId) return null;
 
   return (
-    <aside className="hidden w-[18rem] shrink-0 border-l border-border/70 bg-background/70 xl:flex xl:flex-col">
-      <div className="border-b border-border/70 px-4 py-4">
-        <p className="paperclip-kicker">Operations Rail</p>
-        <div className="paperclip-subpanel mt-3 px-3 py-3">
-          <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <Radar className="h-3.5 w-3.5 text-primary" />
-              Live now
-            </span>
-            <span className="font-medium text-foreground">{activeRuns.length}</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between gap-2 text-xs">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <CircleDot className="h-3.5 w-3.5 text-primary" />
-              Tasks
-            </span>
-            <span className="font-medium text-foreground">{summary?.tasks.inProgress ?? 0}</span>
+    <aside className="hidden shrink-0 border-t border-border/70 bg-background/94 backdrop-blur supports-[backdrop-filter]:bg-background/82 md:flex">
+      <div
+        className="operations-ticker-shell flex h-12 w-full items-center gap-3 overflow-hidden px-3 xl:px-4"
+        onMouseEnter={() => setTickerPaused(true)}
+        onMouseLeave={() => setTickerPaused(false)}
+      >
+        <div className="operations-ticker-chip paperclip-pill flex h-8 shrink-0 items-center gap-2 rounded-[var(--paperclip-radius-compact)] px-3 text-[11px] text-foreground">
+          <Radar className="h-3.5 w-3.5 text-primary" />
+          <span className="paperclip-kicker text-[0.58rem] tracking-[0.18em]">Operations</span>
+          <span className="text-muted-foreground">{activeRuns.length} live</span>
+        </div>
+
+        <div className="relative min-w-0 flex-1 overflow-hidden">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-background via-background/88 to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-background via-background/88 to-transparent" />
+          <div className="operations-ticker-viewport">
+            <div className="operations-ticker-track" style={tickerStyle}>
+              <div className="operations-ticker-group">
+                {tickerItems.map((item) => (
+                  <TickerChip
+                    key={item.key}
+                    item={item}
+                    onEngage={() => setTickerPaused(true)}
+                    onRelease={() => setTickerPaused(false)}
+                  />
+                ))}
+              </div>
+              <div className="operations-ticker-group operations-ticker-group-clone" aria-hidden="true">
+                {tickerItems.map((item) => (
+                  <TickerChip key={`${item.key}-clone`} item={item} interactive={false} />
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-        {summary && summary.budgets.activeIncidents > 0 ? (
-          <div className="paperclip-subpanel mt-3 border-red-300 bg-red-50 px-3 py-3 text-sm text-red-800 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-100">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-300" />
-              <span className="font-medium">
-                {summary.budgets.activeIncidents} active budget incident{summary.budgets.activeIncidents === 1 ? "" : "s"}
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-red-700/80 dark:text-red-100/75">
-              {summary.budgets.pausedAgents} paused agents and {summary.budgets.pendingApprovals} budget approvals need review.
-            </p>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-        <section className="paperclip-panel p-4">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <p className="paperclip-kicker">Live Queue</p>
-              <h2 className="mt-1 text-sm font-semibold">Agent traffic</h2>
-            </div>
-            <Link to="/agents/all" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
-              View all
-            </Link>
-          </div>
-          <div className="mt-4 space-y-2">
-            {activeRuns.length === 0 ? (
-              <div className="paperclip-subpanel paperclip-subpanel-compact px-3 py-3 text-sm text-muted-foreground">
-                No active runs right now.
-              </div>
-            ) : (
-              activeRuns.slice(0, 4).map((run) => {
-                const issue = run.issueId ? issueMap.get(run.issueId) : null;
-                return (
-                  <Link
-                    key={run.id}
-                    to={`/agents/${run.agentId}/runs/${run.id}`}
-                    className="paperclip-subpanel paperclip-subpanel-compact block px-3 py-3 no-underline transition-colors hover:border-primary/35 hover:bg-accent/22"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="relative flex h-2.5 w-2.5 shrink-0">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/70 opacity-80" />
-                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
-                          </span>
-                          <span className="truncate text-sm font-medium">{run.agentName}</span>
-                        </div>
-                        {issue ? (
-                          <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
-                            <span className="text-foreground">{issue.identifier ?? issue.id.slice(0, 8)}</span>
-                            {` · ${issue.title}`}
-                          </p>
-                        ) : (
-                          <p className="mt-2 text-xs text-muted-foreground">System heartbeat</p>
-                        )}
-                      </div>
-                      <span className="paperclip-pill shrink-0 px-2 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                        {formatLabel(run.status)}
-                      </span>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                      <span>{run.triggerDetail ?? run.invocationSource}</span>
-                      <span>{relativeTime(run.startedAt ?? run.createdAt)}</span>
-                    </div>
-                  </Link>
-                );
-              })
-            )}
-          </div>
-        </section>
-
-        <section className="paperclip-panel mt-4 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <p className="paperclip-kicker">Portfolio</p>
-              <h2 className="mt-1 text-sm font-semibold">Project pulse</h2>
-            </div>
-            <Link to="/projects" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
-              Portfolio
-            </Link>
-          </div>
-          <div className="mt-4 space-y-2">
-            {recentProjects.length === 0 ? (
-              <div className="paperclip-subpanel paperclip-subpanel-compact px-3 py-3 text-sm text-muted-foreground">
-                No projects yet.
-              </div>
-            ) : (
-              recentProjects.map((project) => {
-                const openTasks = (issues ?? []).filter((issue) => issue.projectId === project.id && issue.status !== "done").length;
-                return (
-                  <Link
-                    key={project.id}
-                    to={projectUrl(project)}
-                    className="paperclip-subpanel paperclip-subpanel-compact block px-3 py-3 no-underline transition-colors hover:border-primary/35 hover:bg-accent/22"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full"
-                            style={{ backgroundColor: project.color ?? "var(--primary)" }}
-                          />
-                          <span className="truncate text-sm font-medium">{project.name}</span>
-                        </div>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          {openTasks} open tasks · updated {relativeTime(project.updatedAt)}
-                        </p>
-                      </div>
-                      <span className="paperclip-pill shrink-0 px-2 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                        {formatLabel(project.status)}
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })
-            )}
-          </div>
-        </section>
-
-        <section className="paperclip-panel mt-4 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <p className="paperclip-kicker">Signal</p>
-              <h2 className="mt-1 text-sm font-semibold">Board activity</h2>
-            </div>
-            <Link to="/activity" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
-              Activity log
-            </Link>
-          </div>
-          <div className="paperclip-subpanel paperclip-subpanel-compact mt-4 overflow-hidden">
-            {events.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-muted-foreground">No recent activity.</div>
-            ) : (
-              events.map((event, index) => (
-                <ActivityRow
-                  key={event.id}
-                  event={event}
-                  agentMap={agentMap}
-                  entityNameMap={entityNameMap}
-                  entityTitleMap={entityTitleMap}
-                  className={cn(index > 0 && "border-t border-border/60")}
-                />
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="paperclip-panel mt-4 p-4">
-          <div className="flex items-center gap-2">
-            <FolderKanban className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold">Routing</h2>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-            <Link to="/issues" className="paperclip-subpanel paperclip-subpanel-compact px-3 py-3 no-underline transition-colors hover:border-primary/35 hover:bg-accent/22">
-              <CircleDot className="h-3.5 w-3.5 text-primary" />
-              <p className="mt-2 font-medium text-foreground">Task board</p>
-              <p className="mt-1 text-muted-foreground">{summary ? statText(summary.tasks.open, "open task") : "Open work"}</p>
-            </Link>
-            <Link to="/agents/all" className="paperclip-subpanel paperclip-subpanel-compact px-3 py-3 no-underline transition-colors hover:border-primary/35 hover:bg-accent/22">
-              <Bot className="h-3.5 w-3.5 text-primary" />
-              <p className="mt-2 font-medium text-foreground">Virtual office</p>
-              <p className="mt-1 text-muted-foreground">{summary ? statText(summary.agents.active, "enabled agent") : "Crew roster"}</p>
-            </Link>
-          </div>
-        </section>
       </div>
     </aside>
   );

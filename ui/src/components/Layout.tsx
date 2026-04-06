@@ -404,26 +404,28 @@ export function Layout() {
           >
             <BreadcrumbBar />
           </div>
-          <div className={cn(isMobile ? "block" : "flex flex-1 min-h-0")}>
-            <main
-              id="main-content"
-              tabIndex={-1}
-              className={cn(
-                "paperclip-grid flex-1 p-4 md:p-6 xl:p-8",
-                isMobile ? "overflow-visible pb-[calc(5rem+env(safe-area-inset-bottom))]" : "overflow-auto",
-              )}
-            >
-              {hasUnknownCompanyPrefix ? (
-                <NotFoundPage
-                  scope="invalid_company_prefix"
-                  requestedPrefix={companyPrefix ?? selectedCompany?.issuePrefix}
-                />
-              ) : (
-                <Outlet />
-              )}
-            </main>
+          <div className={cn(isMobile ? "block" : "flex flex-1 min-h-0 flex-col")}>
+            <div className={cn(isMobile ? "block" : "flex min-h-0 flex-1")}>
+              <main
+                id="main-content"
+                tabIndex={-1}
+                className={cn(
+                  "paperclip-grid flex-1 p-4 md:p-6 xl:p-8",
+                  isMobile ? "overflow-visible pb-[calc(5rem+env(safe-area-inset-bottom))]" : "overflow-auto",
+                )}
+              >
+                {hasUnknownCompanyPrefix ? (
+                  <NotFoundPage
+                    scope="invalid_company_prefix"
+                    requestedPrefix={companyPrefix ?? selectedCompany?.issuePrefix}
+                  />
+                ) : (
+                  <Outlet />
+                )}
+              </main>
+              <PropertiesPanel />
+            </div>
             {!isInstanceSettingsRoute && !isMailRoute ? <OperationsRail companyId={selectedCompanyId} /> : null}
-            <PropertiesPanel />
           </div>
         </div>
       </div>

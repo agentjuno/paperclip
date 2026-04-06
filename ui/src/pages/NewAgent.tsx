@@ -1,11 +1,16 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "@/lib/router";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { authApi } from "../api/auth";
 import { agentsApi } from "../api/agents";
 import { companySkillsApi } from "../api/companySkills";
 import { queryKeys } from "../lib/queryKeys";
+import {
+  filterVisibleAgentAdapterTypes,
+  getDefaultVisibleAgentAdapterType,
+} from "../lib/agent-adapter-visibility";
 import { AGENT_ROLES } from "@paperclipai/shared";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -33,6 +38,7 @@ const SUPPORTED_ADVANCED_ADAPTER_TYPES = new Set<CreateConfigValues["adapterType
   "claude_platform",
   "codex_local",
   "gemini_local",
+  "http",
   "opencode_local",
   "pi_local",
   "cursor",
@@ -75,6 +81,10 @@ export function NewAgent() {
   const [selectedSkillKeys, setSelectedSkillKeys] = useState<string[]>([]);
   const [roleOpen, setRoleOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const { data: session, isLoading: sessionLoading } = useQuery({
+    queryKey: queryKeys.auth.session,
+    queryFn: () => authApi.getSession(),
+  });
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -103,6 +113,24 @@ export function NewAgent() {
 
   const isFirstAgent = !agents || agents.length === 0;
   const effectiveRole = isFirstAgent ? "ceo" : role;
+  const visibleAdapterTypes = useMemo(
+    () =>
+      filterVisibleAgentAdapterTypes(
+        Array.from(SUPPORTED_ADVANCED_ADAPTER_TYPES),
+        session?.user.email ?? null,
+        { restrictWhenEmailMissing: !sessionLoading },
+      ) as CreateConfigValues["adapterType"][],
+    [session?.user.email, sessionLoading],
+  );
+  const defaultVisibleAdapterType = useMemo(() => {
+    const preferred = getDefaultVisibleAgentAdapterType(session?.user.email ?? null, {
+      restrictWhenEmailMissing: !sessionLoading,
+    });
+    if (visibleAdapterTypes.includes(preferred as CreateConfigValues["adapterType"])) {
+      return preferred as CreateConfigValues["adapterType"];
+    }
+    return visibleAdapterTypes[0] ?? defaultCreateValues.adapterType;
+  }, [session?.user.email, sessionLoading, visibleAdapterTypes]);
 
   useEffect(() => {
     setBreadcrumbs([
@@ -124,11 +152,20 @@ export function NewAgent() {
     if (!SUPPORTED_ADVANCED_ADAPTER_TYPES.has(requested as CreateConfigValues["adapterType"])) {
       return;
     }
+    if (!visibleAdapterTypes.includes(requested as CreateConfigValues["adapterType"])) {
+      return;
+    }
     setConfigValues((prev) => {
       if (prev.adapterType === requested) return prev;
       return createValuesForAdapterType(requested as CreateConfigValues["adapterType"]);
     });
-  }, [presetAdapterType]);
+  }, [presetAdapterType, visibleAdapterTypes]);
+
+  useEffect(() => {
+    if (visibleAdapterTypes.length === 0) return;
+    if (visibleAdapterTypes.includes(configValues.adapterType)) return;
+    setConfigValues(createValuesForAdapterType(defaultVisibleAdapterType));
+  }, [configValues.adapterType, defaultVisibleAdapterType, visibleAdapterTypes]);
 
   const createAgent = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
@@ -287,6 +324,7 @@ export function NewAgent() {
           values={configValues}
           onChange={(patch) => setConfigValues((prev) => ({ ...prev, ...patch }))}
           adapterModels={adapterModels}
+          allowedAdapterTypes={visibleAdapterTypes}
         />
 
         <div className="border-t border-border px-4 py-4">

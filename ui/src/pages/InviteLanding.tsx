@@ -6,6 +6,10 @@ import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { healthApi } from "../api/health";
 import { queryKeys } from "../lib/queryKeys";
+import {
+  filterVisibleAgentAdapterTypes,
+  getDefaultVisibleAgentAdapterType,
+} from "../lib/agent-adapter-visibility";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AGENT_ADAPTER_TYPES } from "@paperclipai/shared";
@@ -13,11 +17,10 @@ import type { AgentAdapterType, JoinRequest } from "@paperclipai/shared";
 import { AlertTriangle, ShieldCheck, Users } from "lucide-react";
 
 type JoinType = "human" | "agent";
-const joinAdapterOptions: AgentAdapterType[] = [...AGENT_ADAPTER_TYPES];
 
 const adapterLabels: Record<string, string> = {
   claude_local: "Claude (local)",
-  claude_platform: "Claude (platform)",
+  claude_platform: "Platform Agent",
   codex_local: "Codex (local)",
   gemini_local: "Gemini CLI (local)",
   opencode_local: "OpenCode (local)",
@@ -29,7 +32,7 @@ const adapterLabels: Record<string, string> = {
   http: "HTTP",
 };
 
-const ENABLED_INVITE_ADAPTERS = new Set(["claude_local", "claude_platform", "codex_local", "gemini_local", "opencode_local", "pi_local", "cursor", "hermes_local"]);
+const ENABLED_INVITE_ADAPTERS = new Set(["claude_local", "claude_platform", "codex_local", "gemini_local", "opencode_local", "pi_local", "cursor", "hermes_local", "openclaw_gateway", "http"]);
 
 function dateTime(value: string) {
   return new Date(value).toLocaleString();
@@ -86,7 +89,9 @@ export function InviteLandingPage() {
   const token = (params.token ?? "").trim();
   const [joinType, setJoinType] = useState<JoinType>("human");
   const [agentName, setAgentName] = useState("");
-  const [adapterType, setAdapterType] = useState<AgentAdapterType>("claude_local");
+  const [adapterType, setAdapterType] = useState<AgentAdapterType>(
+    getDefaultVisibleAgentAdapterType(null, { restrictWhenEmailMissing: true }),
+  );
   const [capabilities, setCapabilities] = useState("");
   const [result, setResult] = useState<{ kind: "bootstrap" | "join"; payload: unknown } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +114,15 @@ export function InviteLandingPage() {
   });
 
   const invite = inviteQuery.data;
+  const joinAdapterOptions = useMemo(
+    () =>
+      filterVisibleAgentAdapterTypes(
+        AGENT_ADAPTER_TYPES.filter((type) => ENABLED_INVITE_ADAPTERS.has(type)),
+        sessionQuery.data?.user.email ?? null,
+        { restrictWhenEmailMissing: true },
+      ) as AgentAdapterType[],
+    [sessionQuery.data?.user.email],
+  );
   const allowedJoinTypes = invite?.allowedJoinTypes ?? "both";
   const availableJoinTypes = useMemo(() => {
     if (invite?.inviteType === "bootstrap_ceo") return ["human"] as JoinType[];
@@ -121,6 +135,13 @@ export function InviteLandingPage() {
       setJoinType(availableJoinTypes[0] ?? "human");
     }
   }, [availableJoinTypes, joinType]);
+
+  useEffect(() => {
+    if (joinAdapterOptions.length === 0) return;
+    if (!joinAdapterOptions.includes(adapterType)) {
+      setAdapterType(joinAdapterOptions[0]!);
+    }
+  }, [adapterType, joinAdapterOptions]);
 
   const requiresAuthForHuman =
     joinType === "human" &&
@@ -330,8 +351,8 @@ export function InviteLandingPage() {
                   onChange={(event) => setAdapterType(event.target.value as AgentAdapterType)}
                 >
                   {joinAdapterOptions.map((type) => (
-                    <option key={type} value={type} disabled={!ENABLED_INVITE_ADAPTERS.has(type)}>
-                      {adapterLabels[type]}{!ENABLED_INVITE_ADAPTERS.has(type) ? " (Coming soon)" : ""}
+                    <option key={type} value={type}>
+                      {adapterLabels[type]}
                     </option>
                   ))}
                 </select>
