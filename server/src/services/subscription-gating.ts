@@ -15,6 +15,13 @@ import { isStripeBillingConfigured } from "./stripe-billing-config.js";
  * Graceful degradation: if STRIPE_SECRET_KEY is not configured
  * (non-billing environments), runs are always allowed.
  */
+function isBillingBypassed(userId: string) {
+  const raw = process.env.BILLING_BYPASS_USER_IDS?.trim();
+  if (!raw) return false;
+  const ids = raw.split(",").map((id) => id.trim()).filter(Boolean);
+  return ids.includes(userId);
+}
+
 export async function checkSubscriptionAccess(
   db: Db,
   companyId: string,
@@ -50,6 +57,10 @@ export async function checkSubscriptionAccess(
   }
 
   const ownerPrivyUserId = ownerRows[0].principalId;
+
+  if (isBillingBypassed(ownerPrivyUserId)) {
+    return null;
+  }
 
   // 2. Look up the owner's Stripe customer from stripe_customers table (local DB only).
   const customerRows = await db

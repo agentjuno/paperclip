@@ -194,6 +194,17 @@ export function stripeBillingRoutes(db: Db) {
   router.get("/stripe/subscription-status", async (req, res) => {
     const { privyUserId } = requireAuth(req);
 
+    const bypassIds = (process.env.BILLING_BYPASS_USER_IDS ?? "").split(",").map((id) => id.trim()).filter(Boolean);
+    if (bypassIds.includes(privyUserId)) {
+      const body: SubscriptionStatusResponse = {
+        status: "active",
+        stripeCustomerId: null,
+        subscriptionId: null,
+      };
+      res.json(body);
+      return;
+    }
+
     const customer = await billing.getCustomerByPrivyUserId(privyUserId);
 
     const body: SubscriptionStatusResponse = customer
