@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useToast } from "../context/ToastContext";
 import { companiesApi } from "../api/companies";
 import { queryKeys } from "../lib/queryKeys";
 import { formatCents, relativeTime } from "../lib/utils";
@@ -38,6 +39,7 @@ export function Companies() {
   } = useCompany();
   const { openOnboarding } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { pushToast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: stats } = useQuery({
@@ -61,10 +63,31 @@ export function Companies() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => companiesApi.remove(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.companies.stats });
+    onSuccess: async (_, deletedCompanyId) => {
+      if (selectedCompanyId === deletedCompanyId) {
+        const nextSelectedCompanyId =
+          companies.find((company) => company.id !== deletedCompanyId && company.status === "active")?.id
+          ?? companies.find((company) => company.id !== deletedCompanyId)?.id
+          ?? null;
+        if (nextSelectedCompanyId) {
+          setSelectedCompanyId(nextSelectedCompanyId);
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.companies.stats });
       setConfirmDeleteId(null);
+      pushToast({
+        title: "Company deleted",
+        body: "The company and its related records were removed.",
+        tone: "success",
+      });
+    },
+    onError: (error) => {
+      pushToast({
+        title: "Failed to delete company",
+        body: error instanceof Error ? error.message : "The company could not be deleted.",
+        tone: "error",
+      });
     },
   });
 
