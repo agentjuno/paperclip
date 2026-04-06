@@ -1,4 +1,20 @@
 export type { Company } from "./company.js";
+export type {
+  CompanyMailStatus,
+  ProvisionCompanyMailResponse,
+  AgentMailRecord,
+  AgentMailCollectionResponse,
+  AgentMailInbox,
+  AgentMailMessage,
+  AgentMailThread,
+  AgentMailDraft,
+  AgentMailDomain,
+  AgentMailList,
+  AgentMailApiKey,
+  AgentMailWebhook,
+  AgentMailAttachmentInput,
+  CompanyMailApiKeyIssueResponse,
+} from "./agentmail.js";
 export type { InstanceExperimentalSettings, InstanceGeneralSettings, InstanceSettings } from "./instance.js";
 export type {
   CompanySkillSourceType,

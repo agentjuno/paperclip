@@ -3,6 +3,7 @@ import {
   Coins,
   FolderKanban,
   Inbox,
+  Mail,
   CircleDot,
   Target,
   LayoutDashboard,
@@ -125,6 +126,7 @@ export function Sidebar() {
 
         <SidebarSection label="Operate">
           <SidebarNavItem to="/agents/all" label="Virtual Office" icon={Bot} />
+          <SidebarNavItem to="/mail" label="Mail" icon={Mail} />
           <SidebarNavItem to="/routines" label="Automation" icon={Repeat} textBadge="Beta" textBadgeTone="amber" />
           <SidebarNavItem to="/activity" label="Monitoring" icon={History} />
         </SidebarSection>

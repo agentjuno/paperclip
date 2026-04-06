@@ -1,4 +1,4 @@
-import type { CompanyStatus, PauseReason } from "../constants.js";
+import type { CompanyMailProvisioningStatus, CompanyStatus, PauseReason } from "../constants.js";
 
 export interface Company {
   id: string;
@@ -15,6 +15,8 @@ export interface Company {
   brandColor: string | null;
   logoAssetId: string | null;
   logoUrl: string | null;
+  mailProvisioningStatus: CompanyMailProvisioningStatus | null;
+  primaryMailInboxEmail: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

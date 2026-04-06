@@ -31,6 +31,7 @@ export { publishLiveEvent, subscribeCompanyLiveEvents } from "./live-events.js";
 export { reconcilePersistedRuntimeServicesOnStartup } from "./workspace-runtime.js";
 export { createStorageServiceFromConfig, getStorageService } from "../storage/index.js";
 export { tokenLaunchService } from "./token-launch.js";
+export { agentMailService, ensureCompanyMailProvisioned } from "./agentmail.js";
 export { execStripeProjectsCmd, StripeProjectsCliError, type ExecStripeProjectsCmdOptions, type StripeProjectsCliErrorCode } from "./stripe-projects-cli.js";
 export { stripeProjectsService } from "./stripe-projects.js";
 export { stripeBillingService } from "./stripe-billing.js";

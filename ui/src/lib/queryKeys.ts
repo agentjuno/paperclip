@@ -83,6 +83,22 @@ export const queryKeys = {
   tokenLaunch: {
     detail: (companyId: string) => ["token-launch", companyId] as const,
   },
+  mail: {
+    status: (companyId: string) => ["mail", companyId, "status"] as const,
+    inboxes: (companyId: string) => ["mail", companyId, "inboxes"] as const,
+    threads: (companyId: string, inboxId?: string | null) =>
+      ["mail", companyId, "threads", inboxId ?? "__all__"] as const,
+    messages: (companyId: string, inboxId: string) => ["mail", companyId, "messages", inboxId] as const,
+    message: (companyId: string, inboxId: string, messageId: string) =>
+      ["mail", companyId, "messages", inboxId, messageId] as const,
+    drafts: (companyId: string, inboxId?: string | null) =>
+      ["mail", companyId, "drafts", inboxId ?? "__all__"] as const,
+    domains: (companyId: string) => ["mail", companyId, "domains"] as const,
+    lists: (companyId: string, inboxId: string) => ["mail", companyId, "lists", inboxId] as const,
+    apiKeys: (companyId: string, scope: "pod" | "inbox", inboxId?: string | null) =>
+      ["mail", companyId, "api-keys", scope, inboxId ?? "__all__"] as const,
+    webhooks: (companyId: string) => ["mail", companyId, "webhooks"] as const,
+  },
   access: {
     joinRequests: (companyId: string, status: string = "pending_approval") =>
       ["access", "join-requests", companyId, status] as const,

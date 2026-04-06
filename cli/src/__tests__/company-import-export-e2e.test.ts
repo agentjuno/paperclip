@@ -104,6 +104,24 @@ function writeTestConfig(configPath: string, tempRoot: string, port: number, con
   writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
+function applyTestStripeEnv(env: NodeJS.ProcessEnv) {
+  for (const key of Object.keys(env)) {
+    if (key.startsWith("STRIPE_")) {
+      delete env[key];
+    }
+  }
+
+  // The company portability e2e does not exercise billing flows, but the
+  // server mounts Stripe routes on startup. Seed harmless dummy values so the
+  // test boot path is self-contained and does not depend on host shell env.
+  env.STRIPE_SECRET_KEY = "sk_test_paperclip_e2e_dummy";
+  env.STRIPE_PUBLISHABLE_KEY = "pk_test_paperclip_e2e_dummy";
+  env.STRIPE_RESTRICTED_KEY = "rk_test_paperclip_e2e_dummy";
+  env.STRIPE_WEBHOOK_SECRET = "whsec_paperclip_e2e_dummy";
+  env.STRIPE_PRICING_PLAN_ID = "bpp_test_paperclip_e2e_dummy";
+  env.STRIPE_PRICING_PLAN_VERSION = "bppv_test_paperclip_e2e_dummy";
+}
+
 function createServerEnv(configPath: string, port: number, connectionString: string) {
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
@@ -126,6 +144,7 @@ function createServerEnv(configPath: string, port: number, connectionString: str
   env.HEARTBEAT_SCHEDULER_ENABLED = "false";
   env.PAPERCLIP_MIGRATION_AUTO_APPLY = "true";
   env.PAPERCLIP_UI_DEV_MIDDLEWARE = "false";
+  applyTestStripeEnv(env);
 
   return env;
 }
@@ -145,6 +164,7 @@ function createCliEnv() {
   delete env.HEARTBEAT_SCHEDULER_ENABLED;
   delete env.PAPERCLIP_MIGRATION_AUTO_APPLY;
   delete env.PAPERCLIP_UI_DEV_MIDDLEWARE;
+  applyTestStripeEnv(env);
   return env;
 }
 

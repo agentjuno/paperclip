@@ -19,6 +19,7 @@ import {
   instanceUserRoles,
 } from "@paperclipai/db";
 import { logger } from "./logger.js";
+import { ensureCompanyMailProvisioned } from "../services/agentmail.js";
 
 // ── ZHC session format (mirrors zhc-nextjs/src/lib/gating/session.ts) ──
 
@@ -165,6 +166,11 @@ async function ensureZhcCompany(
     { userId, address, companyId: company.id },
     "ZHC bridge: provisioned Paperclip company",
   );
+
+  await ensureCompanyMailProvisioned(db, {
+    companyId: company.id,
+    companyName: `${shortAddr}'s Company`,
+  });
 
   return company.id;
 }

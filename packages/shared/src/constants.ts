@@ -1,6 +1,14 @@
 export const COMPANY_STATUSES = ["active", "paused", "archived"] as const;
 export type CompanyStatus = (typeof COMPANY_STATUSES)[number];
 
+export const COMPANY_MAIL_PROVISIONING_STATUSES = [
+  "not_started",
+  "setting_up",
+  "ready",
+  "failed",
+] as const;
+export type CompanyMailProvisioningStatus = (typeof COMPANY_MAIL_PROVISIONING_STATUSES)[number];
+
 export const DEPLOYMENT_MODES = ["local_trusted", "authenticated"] as const;
 export type DeploymentMode = (typeof DEPLOYMENT_MODES)[number];
 

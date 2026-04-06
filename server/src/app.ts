@@ -35,6 +35,7 @@ import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
 import { stripeProjectRoutes } from "./routes/stripe-projects.js";
 import { stripeBillingRoutes } from "./routes/stripe-billing.js";
 import { stripeWebhookRoute } from "./routes/stripe-webhook.js";
+import { agentMailRoutes, agentMailWebhookRoute } from "./routes/agentmail.js";
 import { applyUiBranding } from "./ui-branding.js";
 import { logger } from "./middleware/logger.js";
 import { DEFAULT_LOCAL_PLUGIN_DIR, pluginLoader } from "./services/plugin-loader.js";
@@ -112,6 +113,7 @@ export async function createApp(
   // Stripe webhook route — registered before auth middleware because it
   // authenticates via Stripe signature, not user session.
   app.use("/api", stripeWebhookRoute(db));
+  app.use("/api", agentMailWebhookRoute(db));
 
   // ZHC wallet-session auth bridge (runs before actorMiddleware)
   if (opts.zhcSessionSecret) {
@@ -190,6 +192,7 @@ export async function createApp(
   api.use(sidebarBadgeRoutes(db));
   api.use(instanceSettingsRoutes(db));
   api.use(tokenLaunchRoutes(db));
+  api.use(agentMailRoutes(db));
   const hostServicesDisposers = new Map<string, () => void>();
   const workerManager = createPluginWorkerManager();
   const pluginRegistry = pluginRegistryService(db);

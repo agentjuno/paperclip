@@ -2,6 +2,7 @@ import { and, count, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   companies,
+  companyAgentmail,
   companyLogos,
   assets,
   agents,
@@ -27,6 +28,7 @@ import {
   companyMemberships,
 } from "@paperclipai/db";
 import { notFound, unprocessable } from "../errors.js";
+import { ensureCompanyMailProvisioned } from "./agentmail.js";
 
 export function companyService(db: Db) {
   const ISSUE_PREFIX_FALLBACK = "CMP";
@@ -43,6 +45,8 @@ export function companyService(db: Db) {
     requireBoardApprovalForNewAgents: companies.requireBoardApprovalForNewAgents,
     brandColor: companies.brandColor,
     logoAssetId: companyLogos.assetId,
+    mailProvisioningStatus: companyAgentmail.provisioningStatus,
+    primaryMailInboxEmail: companyAgentmail.primaryInboxEmail,
     createdAt: companies.createdAt,
     updatedAt: companies.updatedAt,
   };
@@ -101,7 +105,8 @@ export function companyService(db: Db) {
     return database
       .select(companySelection)
       .from(companies)
-      .leftJoin(companyLogos, eq(companyLogos.companyId, companies.id));
+      .leftJoin(companyLogos, eq(companyLogos.companyId, companies.id))
+      .leftJoin(companyAgentmail, eq(companyAgentmail.companyId, companies.id));
   }
 
   function deriveIssuePrefixBase(name: string) {
@@ -164,6 +169,10 @@ export function companyService(db: Db) {
 
     create: async (data: typeof companies.$inferInsert) => {
       const created = await createCompanyWithUniquePrefix(data);
+      await ensureCompanyMailProvisioned(db, {
+        companyId: created.id,
+        companyName: created.name,
+      });
       const row = await getCompanyQuery(db)
         .where(eq(companies.id, created.id))
         .then((rows) => rows[0] ?? null);

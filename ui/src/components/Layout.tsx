@@ -63,6 +63,7 @@ export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isInstanceSettingsRoute = location.pathname.startsWith("/instance/");
+  const isMailRoute = /\/mail\/?$/.test(location.pathname);
   const onboardingTriggered = useRef(false);
   const lastMainScrollTop = useRef(0);
   const [mobileNavVisible, setMobileNavVisible] = useState(true);
@@ -421,7 +422,7 @@ export function Layout() {
                 <Outlet />
               )}
             </main>
-            {!isInstanceSettingsRoute ? <OperationsRail companyId={selectedCompanyId} /> : null}
+            {!isInstanceSettingsRoute && !isMailRoute ? <OperationsRail companyId={selectedCompanyId} /> : null}
             <PropertiesPanel />
           </div>
         </div>
